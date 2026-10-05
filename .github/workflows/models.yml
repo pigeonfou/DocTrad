@@ -1,5 +1,8 @@
 name: DocTrad local model
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/models.yml']
   workflow_run:
     workflows: [DocTrad deploy]
     types: [completed]
@@ -11,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   install-model:
-    if: github.event.repository.private == true && github.event.workflow_run.conclusion == 'success'
+    if: github.event.repository.private == true && (github.event_name == 'push' || github.event.workflow_run.conclusion == 'success')
     runs-on: [self-hosted, Linux, X64, doctrad-deploy]
     timeout-minutes: 45
     steps:
@@ -22,5 +25,13 @@ jobs:
           if [[ ! -x /usr/local/sbin/docutranslate-model-install ]]; then
             echo 'One-time administrator activation required: run scripts/setup-github-deployment.sh from the updated repository.'
             exit 1
+          fi
+          if [[ -z "$DEPLOYED_SHA" ]]; then
+            STATUS=$(sudo -n /usr/local/sbin/docutranslate-deploy --status)
+            printf '%s\n' "$STATUS"
+            RELEASE=${STATUS%%
+\n'*}
+            DEPLOYED_SHA=${RELEASE##*/}
+            [[ $RELEASE == /opt/docutranslate/releases/* && $DEPLOYED_SHA =~ ^[0-9a-f]{40}$ ]] || exit 1
           fi
           sudo -n /usr/local/sbin/docutranslate-model-install "$DEPLOYED_SHA"

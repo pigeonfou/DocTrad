@@ -1,5 +1,10 @@
 name: DocTrad checks
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - '.github/workflows/models.yml'
+      - '.github/workflows/tests.yml'
+  pull_request:
 permissions:
   contents: read
 jobs:
