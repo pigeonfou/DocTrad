@@ -42,3 +42,7 @@ Pour installer sur un serveur dédié, lire [INSTALL_UBUNTU_24_04.md](docs/INSTA
 - [Sauvegarde/restauration](docs/BACKUP_RESTORE.md) · [Mise à jour](docs/UPDATE.md) · [Rollback](docs/ROLLBACK.md)
 - [Diagnostic](docs/TROUBLESHOOTING.md) · [Licences](docs/LICENSES.md)
 - [Cahier des charges original](docs/MISSION.md) · [Travail restant](docs/ROADMAP.md)
+
+## Déploiements depuis GitHub et domaine Cloudflare
+
+[Procédure Ubuntu dédiée complète](docs/GITHUB_CLOUDFLARE_SETUP.md) : dépôt privé, runner nommé `doctrad-ubuntu`, label `doctrad-deploy`, wrapper sudo contrôlé et Cloudflare Tunnel sur Nginx local. Le workflow `DocTrad deploy` attend le succès des tests sur `main`. Aucun déploiement réel n'est possible avant la configuration de votre serveur.

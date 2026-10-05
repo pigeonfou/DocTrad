@@ -1,0 +1,26 @@
+name: DocTrad deploy
+on:
+  workflow_run:
+    workflows: [DocTrad checks]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: doctrad-server-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event.repository.private == true && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: [self-hosted, Linux, X64, doctrad-deploy]
+    timeout-minutes: 45
+    steps:
+      - name: Deploy exact tested commit
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: sudo -n /usr/local/sbin/docutranslate-deploy "$TESTED_SHA"
+      - name: Show service state
+        run: sudo -n /usr/local/sbin/docutranslate-deploy --status
+      - name: Diagnostic on failure
+        if: failure()
+        run: sudo -n /usr/local/sbin/docutranslate-deploy --logs

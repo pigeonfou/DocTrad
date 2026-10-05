@@ -22,7 +22,8 @@ else
 fi
 id docutranslate &>/dev/null || useradd --system --home /var/lib/docutranslate --shell /usr/sbin/nologin docutranslate
 install -d -m 750 -o docutranslate -g docutranslate /var/lib/docutranslate /var/lib/docutranslate/{uploads,outputs,temp} /var/cache/docutranslate /opt/docutranslate/models/translation
-install -d -m 750 /etc/docutranslate/tls /opt/docutranslate/releases
+install -d -m 750 /etc/docutranslate/tls
+install -d -m 750 -o root -g docutranslate /opt/docutranslate/releases
 [[ ! -e $RELEASE ]] || { echo "Release exists" >&2; exit 1; }
 mkdir "$RELEASE"
 tar -C "$ROOT" --exclude=.git --exclude=.venv --exclude=.env --exclude=data --exclude=models --exclude=offline -cf - . | tar -C "$RELEASE" -xf -
@@ -38,6 +39,9 @@ if [[ ${1:-} == --offline ]]; then
 fi
 # Install local package without build isolation or dependency downloads.
 "$RELEASE/.venv/bin/pip" install --no-deps --no-build-isolation "$RELEASE"
+# The service must traverse/read the root-owned release and its venv.
+chmod -R g+rX,o-rwx "$RELEASE"
+chown -R root:docutranslate "$RELEASE"
 DB_PASSWORD=$(openssl rand -hex 32)
 SESSION_SECRET=$(openssl rand -hex 32)
 RUNTIME_SECRET=$(openssl rand -hex 32)

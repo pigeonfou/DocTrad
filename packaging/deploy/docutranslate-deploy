@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Installed root-owned; do not execute a deploy script from the runner checkout.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+[[ $EUID -eq 0 ]] || { echo 'Use the authorized sudo wrapper' >&2; exit 1; }
+[[ $# -eq 1 ]] || { echo 'Usage: docutranslate-deploy SHA|--status|--logs|--rollback' >&2; exit 2; }
+case $1 in
+  --status)
+    readlink -f /opt/docutranslate/current
+    systemctl is-active docutranslate-web docutranslate-worker docutranslate-translation nginx || true
+    curl --fail --max-time 10 http://127.0.0.1:8090/health
+    exit ;;
+  --logs)
+    journalctl --no-pager -n 100 -u docutranslate-web -u docutranslate-worker -u docutranslate-translation
+    exit ;;
+  --rollback) ;;
+  *) [[ $1 =~ ^[0-9a-f]{40}$ ]] || { echo 'Exact commit SHA required' >&2; exit 2; } ;;
+esac
+exec 9>/run/lock/docutranslate-deploy.lock
+flock -n 9 || { echo 'Another deployment is running' >&2; exit 1; }
+BASE=/opt/docutranslate
+STATE=/var/lib/docutranslate-deploy
+OLD=$(readlink -f "$BASE/current")
+[[ $OLD == "$BASE/releases/"* && -d $OLD ]] || { echo 'Initial native installation required' >&2; exit 1; }
+SERVICES=(docutranslate-web docutranslate-worker docutranslate-translation)
+if [[ $1 == --rollback ]]; then
+  [[ -f $STATE/previous ]] || { echo 'No automatic deployment to roll back' >&2; exit 1; }
+  PREVIOUS=$(cat "$STATE/previous")
+  [[ $PREVIOUS == "$BASE/releases/"* && -d $PREVIOUS ]] || exit 1
+  # This operator action switches code only. A schema rollback needs the backup.
+  systemctl stop "${SERVICES[@]}"
+  ln -s "$PREVIOUS" "$BASE/current.next"
+  mv -Tf "$BASE/current.next" "$BASE/current"
+  systemctl start docutranslate-translation docutranslate-worker docutranslate-web
+  curl --fail --retry 10 --retry-delay 2 --retry-connrefused http://127.0.0.1:8090/health
+  exit
+fi
+SHA=$1
+REPO=$STATE/repository.git
+KEY=/root/.ssh/doctrad-deploy-ed25519
+[[ -d $REPO && -f $KEY ]] || { echo 'Run setup-github-deployment.sh first' >&2; exit 1; }
+git -c core.sshCommand="ssh -p 443 -o HostName=ssh.github.com -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" --git-dir="$REPO" fetch origin main
+HEAD_SHA=$(git --git-dir="$REPO" rev-parse FETCH_HEAD)
+[[ $SHA == "$HEAD_SHA" ]] || { echo 'Refusing an outdated commit: only current main can deploy' >&2; exit 1; }
+# Git symlinks/submodules are deliberately unsupported in release payloads.
+if git --git-dir="$REPO" ls-tree -r "$SHA" | grep -Eq '^(120000|160000) '; then
+  echo 'Symlinks/submodules require explicit review' >&2; exit 1
+fi
+RELEASE=$BASE/releases/$SHA
+[[ $OLD != "$RELEASE" ]] || { echo 'This commit is already active'; exit; }
+[[ ! -e $RELEASE ]] || { echo 'Release exists; inspect its earlier failure before retrying' >&2; exit 1; }
+install -d -m 750 -o docutranslate -g docutranslate "$RELEASE"
+git --git-dir="$REPO" archive "$SHA" | tar --no-same-owner -x -C "$RELEASE"
+chown -R docutranslate:docutranslate "$RELEASE"
+# Package build/install executes as the service account, never as root.
+runuser -u docutranslate -- python3 -m venv "$RELEASE/.venv"
+runuser -u docutranslate -- "$RELEASE/.venv/bin/pip" install --disable-pip-version-check -r "$RELEASE/requirements.lock"
+runuser -u docutranslate -- "$RELEASE/.venv/bin/pip" install --no-deps --no-build-isolation "$RELEASE"
+runuser -u docutranslate -- "$RELEASE/.venv/bin/pip" check
+runuser -u docutranslate -- "$RELEASE/.venv/bin/python" -m compileall -q "$RELEASE/app"
+chmod -R g+rX,o-rwx "$RELEASE"
+chown -R root:docutranslate "$RELEASE"
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+BACKUP=/var/backups/docutranslate/$STAMP-$SHA
+install -d -m 700 "$BACKUP"
+set -a
+# shellcheck source=/dev/null
+source /etc/docutranslate/docutranslate.env
+set +a
+STOPPED=0
+MIGRATED=0
+rollback_failure() {
+  result=$?
+  trap - EXIT
+  if (( result != 0 && STOPPED )); then
+    echo 'Deployment failed: restoring previous code' >&2
+    systemctl stop "${SERVICES[@]}" || true
+    if (( MIGRATED )); then
+      if ! runuser -u postgres -- pg_restore --clean --if-exists --exit-on-error -d docutranslate < "$BACKUP/database.dump"; then
+        echo "Database restore failed. Services left stopped. Backup: $BACKUP" >&2
+        exit "$result"
+      fi
+    fi
+    rm -f "$BASE/current.next"
+    ln -s "$OLD" "$BASE/current.next"
+    mv -Tf "$BASE/current.next" "$BASE/current"
+    systemctl start docutranslate-translation docutranslate-worker docutranslate-web || true
+  fi
+  exit "$result"
+}
+trap rollback_failure EXIT
+STOPPED=1
+systemctl stop "${SERVICES[@]}"
+runuser -u postgres -- pg_dump -Fc docutranslate > "$BACKUP/database.dump"
+cp -a /etc/docutranslate "$BACKUP/config"
+printf '%s\n' "$OLD" > "$BACKUP/release.txt"
+# Schema changes for this development server must remain backward compatible.
+MIGRATED=1
+runuser -u docutranslate -- "$RELEASE/.venv/bin/docutranslate" migrate
+ln -s "$RELEASE" "$BASE/current.next"
+mv -Tf "$BASE/current.next" "$BASE/current"
+systemctl start docutranslate-translation docutranslate-worker docutranslate-web
+curl --fail --retry 10 --retry-delay 2 --retry-connrefused --max-time 10 http://127.0.0.1:8090/health
+# A web-only development release may have no model; ready=false is not a model validation.
+systemctl is-active --quiet docutranslate-web docutranslate-worker docutranslate-translation
+printf '%s\n' "$OLD" > "$STATE/previous"
+printf '%s\n' "$SHA" > "$STATE/current-commit"
+printf '%s\n' "$BACKUP" > "$STATE/last-backup"
+STOPPED=0
+printf '\nDEPLOYED %s\nBACKUP %s\n' "$SHA" "$BACKUP"
