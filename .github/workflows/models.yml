@@ -34,3 +34,7 @@ jobs:
             [[ $RELEASE == /opt/docutranslate/releases/* && $DEPLOYED_SHA =~ ^[0-9a-f]{40}$ ]] || exit 1
           fi
           sudo -n /usr/local/sbin/docutranslate-model-install "$DEPLOYED_SHA"
+
+      - name: Show local service logs on failure
+        if: failure()
+        run: sudo -n /usr/local/sbin/docutranslate-deploy --logs
