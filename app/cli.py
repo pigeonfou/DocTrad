@@ -51,7 +51,23 @@ def model_action(action, model_id):
     models = registry.list()
     if action == "list": print(json.dumps(models, indent=2, ensure_ascii=False)); return
     item = next((m for m in models if m["id"] == model_id), None)
-    if not item: raise SystemExit("Modèle non installé")
+    if not item:
+        # Keep filesystem errors visible instead of silently treating them as absent models.
+        target = MODELS / str(model_id)
+        details = []
+        for path in [MODELS.parent, MODELS, target, target / "manifest.json"]:
+            try:
+                stat = path.stat()
+                details.append(f"{path}: uid={stat.st_uid} gid={stat.st_gid} mode={oct(stat.st_mode & 0o777)}")
+            except OSError as exc:
+                details.append(f"{path}: {type(exc).__name__}")
+        try:
+            manifest = json.loads((target / "manifest.json").read_text())
+            manifest["path"] = str(target)
+            registry.verify(manifest)
+        except (OSError, ValueError, KeyError) as exc:
+            details.append(f"Manifest verification: {type(exc).__name__}: {exc}")
+        raise SystemExit("Modèle non installé\n" + "\n".join(details))
     if action == "verify":
         if not registry.verify(item): raise SystemExit("Intégrité invalide")
         print("OK"); return
