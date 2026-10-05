@@ -21,6 +21,15 @@ def recognize(image):
         key = (row['block_num'],row['par_num'],row['line_num'])
         left,top,width,height = [int(row[n]) for n in ('left','top','width','height')]
         box = [left,top,left+width,top+height]
+        # A large horizontal gap usually separates table cells. Do not translate
+        # both columns as one sentence or paint across the intervening border.
+        part = 0
+        while (*key, part) in lines:
+            previous = lines[(*key, part)]
+            if left - previous['box'][2] <= max(height, previous['box'][3]-previous['box'][1])*2.5:
+                break
+            part += 1
+        key = (*key, part)
         if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":float(row['conf'])/100}
         else:
             line = lines[key];line['text'] += ' '+row['text'];line['confidence']=min(line['confidence'],float(row['conf'])/100)
@@ -53,7 +62,10 @@ def scan_pdf(path):
     with tempfile.TemporaryDirectory(prefix='doctrad-ocr-') as temp:
         for page in range(1,page_count+1):
             prefix=Path(temp)/'page'
-            subprocess.run(['pdftoppm','-f',str(page),'-l',str(page),'-singlefile','-scale-to','2500','-png',str(path),str(prefix)],capture_output=True,timeout=120,check=True)
+            subprocess.run(['pdftoppm','-f',str(page),'-l',str(page),'-singlefile','-cropbox','-scale-to','2500','-png',str(path),str(prefix)],capture_output=True,timeout=120,check=True)
+            from PIL import Image
+            with Image.open(prefix.with_suffix('.png')) as image:
+                image_size=list(image.size)
             for line in recognize(prefix.with_suffix('.png')):
-                line['page']=page;all_lines.append(line)
+                line['page']=page;line['image_size']=image_size;all_lines.append(line)
     return all_lines

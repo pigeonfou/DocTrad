@@ -10,6 +10,18 @@ from .quality import protect, restore, check
 
 log = logging.getLogger(__name__)
 
+def export_job(s, job):
+    segments = list(s.scalars(select(Segment).where(Segment.job_id == job.id).order_by(Segment.position)))
+    report = exports(DATA / 'uploads' / (job.id + job.suffix), job.suffix,
+                     [segment.target for segment in segments], DATA / 'outputs' / job.id,
+                     segments=[dict(segment.metadata_json, text=segment.source) for segment in segments])
+    if report:
+        for warning in report['warnings']:
+            segment = segments[warning['segment']]
+            message = 'Mise en page : ' + warning['reason']
+            if message not in segment.warnings:
+                segment.warnings = [*segment.warnings, message]
+
 def claim():
     with Session.begin() as s:
         job = s.scalar(select(Job).where(Job.status.in_(["queued", "export_queued"])).order_by(Job.created).with_for_update(skip_locked=True).limit(1))
@@ -23,8 +35,7 @@ def run_job(job_id):
         with Session() as s:
             job = s.get(Job, job_id)
             if job.status == "exporting":
-                targets = list(s.scalars(select(Segment.target).where(Segment.job_id == job.id).order_by(Segment.position)))
-                exports(DATA / "uploads" / (job.id + job.suffix), job.suffix, targets, DATA / "outputs" / job.id)
+                export_job(s, job)
                 job.status = "done"; job.progress = 100; s.commit()
                 return
             terms = {g.source:g.target for g in s.scalars(select(Glossary).where(Glossary.active == True).order_by(Glossary.priority.desc()))}
@@ -48,7 +59,7 @@ def run_job(job_id):
                 targets.append(translated)
                 job.progress = int((i + 1) / len(texts) * 90); job.heartbeat = now(); s.commit()
                 (DATA / "worker-heartbeat").write_text(str(time.time()))
-            exports(DATA / "uploads" / (job.id + job.suffix), job.suffix, targets, DATA / "outputs" / job.id)
+            export_job(s, job)
             job.status = "done"; job.progress = 100; job.elapsed = int(time.monotonic() - start); s.commit()
     except Exception as exc:
         # No confidential document text or model response in logs.

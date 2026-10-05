@@ -68,14 +68,8 @@ def extract(path, suffix):
         reader = PdfReader(path)
         if reader.is_encrypted: raise ValueError("PDF chiffré non supporté")
         if len(reader.pages) > 500: raise ValueError("PDF limité à 500 pages")
-        texts = []
-        for page in reader.pages:
-            text = page.extract_text() or ""
-            if not text.strip():
-                from .ocr import scan_pdf
-                return [line["text"] for line in scan_pdf(path)]
-            texts.extend(t for t in text.splitlines() if t.strip())
-        return texts
+        from .ocr import scan_pdf
+        return [line['text'] for line in scan_pdf(path)]
     from .ocr import recognize
     return [line["text"] for line in recognize(path)]
 
@@ -87,7 +81,7 @@ def replace_paragraph(p, text):
         nodes[0].text = text
         for node in nodes[1:]: node.text = ""
 
-def exports(original, suffix, targets, output):
+def exports(original, suffix, targets, output, segments=None):
     output = Path(output); output.mkdir(parents=True, exist_ok=True)
     from docx import Document
     if suffix == ".docx":
@@ -107,6 +101,11 @@ def exports(original, suffix, targets, output):
             if len(paragraphs) != len(targets): raise ValueError("Structure de la présentation modifiée")
             for p, t in zip(paragraphs, targets): replace_paragraph(p, t)
             presentation.save(output / "translation.pptx")
+    if suffix == '.pdf':
+        from .pdf_layout import export_pdf
+        if segments is None:
+            segments = analyze(original, suffix)
+        return export_pdf(original, targets, segments, output / 'translation.pdf')
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet
     styles = getSampleStyleSheet()
@@ -125,7 +124,7 @@ def analyze(path, suffix):
         reader = PdfReader(path)
         if reader.is_encrypted: raise ValueError("PDF chiffré non supporté")
         if len(reader.pages) > 500: raise ValueError("PDF limité à 500 pages")
-        if any(not (page.extract_text() or "").strip() for page in reader.pages):
-            from .ocr import scan_pdf
-            return scan_pdf(path)
+        # Both native and scanned PDFs need page coordinates for visual export.
+        from .ocr import scan_pdf
+        return scan_pdf(path)
     return [{"text":text,"confidence":1.0,"box":None,"page":None} for text in extract(path,suffix)]
