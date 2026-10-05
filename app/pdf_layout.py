@@ -68,7 +68,9 @@ def export_pdf(original, targets, segments, destination):
                         continue
                     x0, y0, x1, y1 = [int(value) for value in box]
                     if not (0 <= x0 < x1 <= image.width and 0 <= y0 < y1 <= image.height):
-                        raise ValueError('Coordonnées OCR hors de la page')
+                        report['warnings'].append({'segment': index, 'page': page_number,
+                            'reason': 'Coordonnées OCR invalides : zone originale conservée ; réanalyser le document'})
+                        continue
                     if not target.strip():
                         raise ValueError('Traduction PDF vide')
                     # Leave uncertain logos/graphic OCR untouched for human review.

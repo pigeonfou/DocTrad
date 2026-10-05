@@ -17,6 +17,8 @@ Le même rendu à 2500 pixels sert à l'analyse et à l'export, avec CropBox et 
 Chaque page entière sert de fond ; les traductions sont superposées dans les seules
 zones de texte reconnues, avec une couleur de fond et de texte estimée localement.
 Les grandes séparations horizontales OCR délimitent les cellules de tableau.
+Les bordures verticales ne séparent des cellules que si elles traversent réellement
+la ligne reconnue ; elles ne doivent pas couper les notes situées sous le tableau.
 Les coordonnées enregistrées des segments sont réutilisées après correction humaine.
 
 Le nombre et les dimensions des pages sont conservés. Les illustrations restent dans
@@ -34,8 +36,14 @@ d'une illustration ; elle ne constitue pas une traduction complète validée.
 
 `tests/test_pdf_layout.py` vérifie le nombre et les dimensions des pages, le texte
 français superposé, la conservation d'une figure colorée, le refus des coordonnées
-invalides et le signalement des débordements. Le vrai document vérifie l'intégrité
+invalides sans bloquer les autres zones et le signalement des débordements. Le vrai document vérifie l'intégrité
 du fichier, l'OCR, la séparation des en-têtes de tableau et l'export des deux pages.
 Les substitutions françaises de ce test sont fixées : il teste l'export, pas la qualité
 linguistique du modèle. Une relecture visuelle et technique reste nécessaire pour
 une traduction réelle, notamment les unités, fréquences, références et petites notes.
+
+Une régression de coordonnées de largeur négative est couverte pour toutes les zones
+du document, y compris les notes et pieds de page. Au redémarrage, le worker reprend
+uniquement les PDF bloqués par l'erreur précise « Coordonnées OCR hors de la page »,
+en réexportant les traductions et corrections déjà sauvegardées. Les anciennes zones
+invalides sont conservées dans le fond et signalées pour réanalyse, sans stopper le PDF.

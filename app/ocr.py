@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 
-def vertical_rules(image):
+def vertical_rules(image, with_edges=False):
     from PIL import Image, ImageChops
     with Image.open(image) as source:
         grey = source.convert('L')
@@ -24,7 +24,8 @@ def vertical_rules(image):
             groups[-1].append(x)
         else:
             groups.append([x])
-    return [round(sum(group)/len(group)) for group in groups]
+    rules = [round(sum(group)/len(group)) for group in groups]
+    return (rules, edges) if with_edges else rules
 
 
 def recognize(image):
@@ -33,14 +34,25 @@ def recognize(image):
     if backend != "tesseract": raise ValueError("Moteur OCR inconnu")
     if not shutil.which("tesseract"): raise ValueError("Tesseract local absent")
     result = subprocess.run(["tesseract",str(image),"stdout","-l","eng","--psm","3","tsv"],capture_output=True,text=True,timeout=120,check=True)
-    rules = vertical_rules(image)
+    rules, edges = vertical_rules(image, with_edges=True)
+    edge_pixels = edges.load()
+    line_rules = {}
     lines = {}
     for row in csv.DictReader(result.stdout.splitlines(),delimiter='\t'):
         if not row.get('text','').strip() or float(row['conf']) < 0: continue
         key = (row['block_num'],row['par_num'],row['line_num'])
         left,top,width,height = [int(row[n]) for n in ('left','top','width','height')]
+        if key not in line_rules:
+            middle = top+height//2
+            start, end = max(0,middle-35), min(edges.height,middle+35)
+            # A column boundary must actually extend through this text line.
+            # A global x coordinate must never cut footnotes below the table.
+            line_rules[key] = [rule for rule in rules if
+                sum(any(edge_pixels[x,y] == 255 for x in range(max(0,rule-2), min(edges.width,rule+3)))
+                    for y in range(start,end)) >= (end-start)*.8]
+        active_rules = line_rules[key]
         box = [left,top,left+width,top+height]
-        if (row['text'] == '|' or width < height/3) and any(abs(rule-(left+width/2)) < max(5,width/2) for rule in rules):
+        if (row['text'] == '|' or width < height/3) and any(abs(rule-(left+width/2)) < max(5,width/2) for rule in active_rules):
             # A table border is sometimes recognized as the character '|'.
             continue
         # A large horizontal gap usually separates table cells. Do not translate
@@ -48,11 +60,7 @@ def recognize(image):
         part = 0
         while (*key, part) in lines:
             previous = lines[(*key, part)]
-            boundaries = [rule for rule in rules if previous['box'][0] < rule <= left]
-            crosses_rule = bool(boundaries)
-            if boundaries:
-                previous['box'][2] = min(previous['box'][2], min(boundaries)-2)
-                previous['text'] = previous['text'].rstrip(' |')
+            crosses_rule = any(previous['box'][2] <= rule <= left for rule in active_rules)
             if not crosses_rule and left - previous['box'][2] <= max(height, previous['box'][3]-previous['box'][1])*2.5:
                 break
             part += 1

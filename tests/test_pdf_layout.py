@@ -52,11 +52,11 @@ def test_overflow_is_reported_and_not_clipped(tmp_path):
     assert len(report['warnings']) == len(segments)
 
 
-def test_invalid_coordinates_refused(tmp_path):
+def test_invalid_coordinates_reported_without_blocking_export(tmp_path):
     source = source_pdf(tmp_path)
-    with pytest.raises(ValueError, match='hors de la page'):
-        export_pdf(source, ['Bonjour'], [{'page':1, 'box':[-1,0,20,20]}], tmp_path/'translation.pdf')
-    assert not (tmp_path/'translation.pdf').exists()
+    report = export_pdf(source, ['Bonjour'], [{'page':1, 'box':[-1,0,20,20]}], tmp_path/'translation.pdf')
+    assert 'Coordonnées OCR invalides' in report['warnings'][0]['reason']
+    assert len(PdfReader(tmp_path/'translation.pdf').pages) == 2
 
 
 def test_tsm_reference_document(tmp_path):
@@ -69,6 +69,11 @@ def test_tsm_reference_document(tmp_path):
     assert all(not (page.extract_text() or '').strip() for page in reader.pages)
     segments = scan_pdf(source)
     assert len(segments) >= 90
+    for item in segments:
+        x0,y0,x1,y1 = item['box']
+        width,height = item['image_size']
+        assert 0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height
+    assert any(item['text'].startswith('Specifications subject to change') for item in segments)
     # Table headings are independent cells, not one phrase across the border.
     assert any(item['text'] == 'Features' for item in segments)
     assert any(item['text'] == 'Capability' for item in segments)
@@ -86,3 +91,6 @@ def test_tsm_reference_document(tmp_path):
     assert 'Capacité' in output.pages[1].extract_text()
     assert report['mode'] == 'page_background_with_text_overlay'
     assert all(page.images for page in output.pages)
+    all_zones = export_pdf(source, ['FR : '+item['text'] for item in segments], segments, tmp_path/'all-zones.pdf')
+    assert not any('Coordonnées OCR invalides' in warning['reason'] for warning in all_zones['warnings'])
+    assert len(PdfReader(tmp_path/'all-zones.pdf').pages) == 2

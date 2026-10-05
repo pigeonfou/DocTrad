@@ -71,10 +71,21 @@ def run_job(job_id):
 def main():
     logging.basicConfig(level=logging.INFO)
     DATA.mkdir(parents=True, exist_ok=True)
+    recover_layout_failures()
     while True:
         (DATA / "worker-heartbeat").write_text(str(time.time()))
         job_id = claim()
         if job_id: run_job(job_id)
         else: time.sleep(2)
+
+def recover_layout_failures():
+    # Retry only this known export regression, preserving every saved correction.
+    with Session.begin() as s:
+        jobs = s.scalars(select(Job).where(Job.status == 'failed', Job.suffix == '.pdf',
+                                          Job.error == 'Coordonnées OCR hors de la page'))
+        for job in jobs:
+            if s.scalar(select(Segment.id).where(Segment.job_id == job.id).limit(1)) is not None:
+                job.status = 'export_queued'
+                job.error = ''
 
 if __name__ == "__main__": main()

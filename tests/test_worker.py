@@ -30,6 +30,32 @@ def test_export_after_correction():
     assert Document(DATA/'outputs/memory-job/translation.docx').paragraphs[0].text=='Alimentation nominale : 12 VDC.'
 
 
+def test_known_layout_failure_recovered_without_losing_correction():
+    from reportlab.pdfgen import canvas
+    from app.worker import recover_layout_failures
+    DATA.joinpath('uploads').mkdir(parents=True, exist_ok=True)
+    c = canvas.Canvas(str(DATA/'uploads/layout-recovery.pdf'))
+    c.drawString(60,700,'Agency');c.save()
+    with Session.begin() as db:
+        user=User(username='layout-review',password='unused');db.add(user);db.flush()
+        db.add(Job(id='layout-recovery',owner_id=user.id,filename='reference.pdf',suffix='.pdf',
+                   model_id='opus',model_version='a'*40,status='failed',error='Coordonnées OCR hors de la page'))
+        db.add(Segment(job_id='layout-recovery',position=0,source='Agency',machine='Agence',
+                       target='Agence relue',warnings=[],metadata_json={'page':1,'box':[114,1942,113,1963]}))
+    recover_layout_failures()
+    assert claim() == 'layout-recovery'
+    run_job('layout-recovery')
+    with Session() as db:
+        job = db.get(Job,'layout-recovery')
+        segment = db.scalar(select(Segment).where(Segment.job_id == job.id))
+        assert job.status == 'done' and not job.error
+        assert segment.target == 'Agence relue'
+        assert any('Coordonnées OCR invalides' in warning for warning in segment.warnings)
+    recover_layout_failures()
+    assert claim() is None
+    assert (DATA/'outputs/layout-recovery/translation.pdf').is_file()
+
+
 def test_postgres_claim_is_atomic():
     import pytest
     from app.db import engine
