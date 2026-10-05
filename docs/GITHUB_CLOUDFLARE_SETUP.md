@@ -2,6 +2,27 @@
 
 Procédure pour un **Ubuntu Server 24.04 amd64 dédié**. Ne pas appliquer telle quelle au serveur Apache/ProjectFlow existant. Prévoir 16 Go RAM minimum et un SSD d'au moins 80 Go libres : le lock Python actuel inclut des bibliothèques CUDA volumineuses et chaque release possède un venv. Aucun conteneur de production.
 
+## À quel moment installe-t-on le runner ?
+
+**Le runner s'installe à l'étape 8**, après l'installation de DocTrad et la préparation du déploiement. Cette étape décrit séparément le téléchargement, l'enregistrement auprès de GitHub et le démarrage permanent du runner.
+
+| Étape | Où agir ? | Ce que vous faites |
+|---|---|---|
+| 2 | Site GitHub | Préparer les droits du dépôt |
+| 3 et 4 | Serveur Ubuntu, puis site GitHub | Préparer Ubuntu et autoriser le serveur à lire DocTrad |
+| 5 et 6 | Serveur Ubuntu | Installer l'application et son accès local |
+| 7 | Serveur Ubuntu | Préparer le compte et le script de déploiement ; le runner n'est pas encore installé |
+| **8** | **Site GitHub et serveur Ubuntu** | **Installer, enregistrer et démarrer le runner** |
+| 9 et 10 | Serveur Ubuntu et site Cloudflare | Donner une adresse HTTPS publique au site |
+
+### Pourquoi une clé SSH alors que le runner n'en demande pas ?
+
+**GitHub Actions n'exige pas de clé SSH pour enregistrer le runner.** GitHub fournit un jeton temporaire à cette fin. La clé SSH de l'étape 4 sert à une autre opération : notre script de déploiement récupère lui-même le code du dépôt privé, indépendamment du runner. Le script DocTrad actuel utilise cette clé ; supprimer cette étape sans modifier le script empêcherait les déploiements.
+
+Un workflow peut aussi télécharger le code avec le jeton automatique GitHub, sans clé SSH. L'absence de clé dans votre installation ProjectFlow est donc possible ; ce guide ne suppose pas que ProjectFlow utilise le même mécanisme que DocTrad.
+
+Vous ne devez exporter aucune clé privée. À l'étape 4, vous copiez seulement le texte de la **clé publique** dans GitHub, une seule fois.
+
 ## 1. Fonctionnement et limites
 
 GitHub app connecté à ChatGPT → commit sur main → `DocTrad checks` sur runner hébergé GitHub → succès → `DocTrad deploy` sur runner du serveur → sauvegarde, déploiement exact du SHA testé, healthcheck. Le navigateur rejoint le site par Cloudflare Tunnel → Nginx local 8082 → FastAPI 8090. PostgreSQL et runtime 8091 ne sont pas exposés.
@@ -96,7 +117,7 @@ curl -fsS http://127.0.0.1:8082/health
 
 Le site écoute uniquement `127.0.0.1:8082`. HTTP est utilisé pour le saut sur la même machine ; HTTPS public sera assuré par Cloudflare. Le proxy transmet `X-Forwarded-Proto: https` et les cookies Secure de l'application restent activés. Il n'y a aucune redirection locale susceptible de former une boucle.
 
-## 7. Installer le mécanisme de déploiement contrôlé
+## 7. Préparer le déploiement — le runner sera installé à l'étape suivante
 
 ```bash
 sudo /usr/local/src/DocTrad/scripts/setup-github-deployment.sh
@@ -107,28 +128,66 @@ Cela crée `docutranslate-runner`, une copie Git bare root à origine fixe, le w
 
 Le wrapper ne lit pas le checkout modifiable du runner : il récupère lui-même le dépôt fixe par clé SSH de lecture et vérifie le SHA exact de main. Les builds Python s'exécutent sous `docutranslate`, jamais root. Les backups restent sous `/var/backups/docutranslate` avec accès root.
 
-## 8. Enregistrer le runner GitHub
+## 8. Installer le runner GitHub Actions sur Ubuntu
 
-GitHub → DocTrad → Settings → Actions → Runners → New self-hosted runner → Linux → x64.
+Un runner est le petit programme installé sur votre serveur qui reçoit les tâches de GitHub Actions. L'étape 7 a créé son compte Linux ; elle n'a pas téléchargé ce programme.
 
-Sur Ubuntu :
+### 8A. Sur le site GitHub : afficher les commandes d'installation
+
+1. Ouvrir [les réglages des runners DocTrad](https://github.com/pigeonfou/DocTrad/settings/actions/runners).
+2. Cliquer sur **New self-hosted runner**.
+3. Sélectionner **Linux**, puis **x64**.
+4. Garder cette page ouverte. Elle affiche deux parties : **Download** et **Configure**.
+
+### 8B. Sur le serveur Ubuntu : télécharger et installer le programme
+
+Depuis votre compte Ubuntu habituel, exécuter :
 
 ```bash
 sudo -iu docutranslate-runner
-mkdir -p actions-runner
-cd actions-runner
+mkdir -p ~/actions-runner
+cd ~/actions-runner
 ```
 
-Exécuter les commandes **Download** et la vérification de checksum fournies par la page GitHub. Utiliser sa version actuelle ; ne pas recopier un ancien numéro de runner. Puis lancer config avec le jeton temporaire affiché :
+Vous êtes maintenant dans le compte réservé au runner et dans son dossier d'installation.
+
+Dans la partie **Download** de la page GitHub, copier et exécuter, une par une, les commandes qui :
+
+1. téléchargent l'archive (commande `curl`) ;
+2. vérifient sa somme de contrôle, si la commande est proposée ;
+3. extraient l'archive (commande `tar`).
+
+**Ne pas recopier la commande GitHub qui crée le dossier et entre dedans** : nous venons de le faire. Les commandes de téléchargement et d'extraction s'exécutent ici **sans sudo**. Leur version est celle affichée par GitHub ; aucun numéro de version ancien n'est à recopier depuis ce guide.
+
+Vérifier que le téléchargement et l'extraction ont réussi :
+
+```bash
+ls config.sh svc.sh
+```
+
+Résultat attendu : les deux fichiers apparaissent. En cas d'erreur, ne pas continuer avant de la résoudre.
+
+### 8C. Sur le serveur Ubuntu : associer le runner à DocTrad
+
+La partie **Configure** de GitHub affiche une commande `./config.sh` contenant un jeton. Copier ce jeton dans la commande ci-dessous, à la place de `JETON_TEMPORAIRE_GITHUB`, puis exécuter :
 
 ```bash
 ./config.sh --url https://github.com/pigeonfou/DocTrad --token JETON_TEMPORAIRE_GITHUB --name doctrad-ubuntu --labels doctrad-deploy --unattended
+```
+
+Le nom est `doctrad-ubuntu` et le label doit être exactement `doctrad-deploy` : notre workflow recherche ce label. Ce runner est associé à DocTrad, séparément de ProjectFlow.
+
+Le jeton sert uniquement à l'enregistrement et expire après une heure. Si GitHub indique qu'il a expiré, rouvrir la page **New self-hosted runner** et utiliser le nouveau jeton. Ne pas envoyer ce jeton dans ChatGPT ni le publier dans Git.
+
+Une fois l'enregistrement réussi, revenir à votre compte Ubuntu habituel :
+
+```bash
 exit
 ```
 
-Le jeton ne doit pas être publié, envoyé ici ni écrit dans le dépôt. Il sert à l'enregistrement et expire. Le runner doit porter exactement le label `doctrad-deploy` et ne pas être associé à ProjectFlow.
+### 8D. Sur le serveur Ubuntu : démarrer le runner comme service permanent
 
-Installer le service depuis votre compte sudo habituel (pas depuis le compte runner) :
+Copier ce bloc complet depuis votre compte Ubuntu habituel :
 
 ```bash
 sudo bash <<'ROOT'
@@ -139,7 +198,17 @@ cd /home/docutranslate-runner/actions-runner
 ROOT
 ```
 
-GitHub doit afficher `doctrad-ubuntu` comme **Idle**. Le service redémarrera avec Ubuntu. Aucun port entrant ne doit être ouvert pour ce runner.
+Le service est maintenant installé et démarré. Il redémarrera automatiquement avec Ubuntu. **Ne pas lancer en plus `./run.sh`**, proposé sur la page GitHub : nous utilisons le service permanent à sa place.
+
+### 8E. Sur le site GitHub : vérifier que l'installation est terminée
+
+Retourner dans **Settings → Actions → Runners** et actualiser la page.
+
+Résultat attendu : **doctrad-ubuntu — Idle**, avec le label **doctrad-deploy**. Idle signifie « connecté et disponible » ; Offline signifie « non connecté ». Si le runner est Offline, vérifier le résultat de `./svc.sh status` avant de passer à Cloudflare.
+
+Il n'y a pas de fichier workflow à créer : le workflow de tests et `.github/workflows/deploy.yml` sont déjà livrés dans le dépôt. Après un nouveau push sur `main`, les tests passent d'abord sur GitHub ; s'ils réussissent et que le dépôt est privé, le runner de votre serveur reçoit le déploiement. L'installation du runner ne déclenche pas à elle seule un déploiement.
+
+Documentation officielle : https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners
 
 ## 9. Cloudflare : installer cloudflared
 
