@@ -35,6 +35,23 @@ class TransformersEngine(TranslationEngine):
         except ImportError: pass
     def health(self): return {"loaded": self.model is not None, "model": self.manifest and self.manifest["id"]}
     def translate(self, text):
+        import re
+        # Keep protected technical values and glossary replacements out of the model.
+        marker = r"(ZXQ[0-9a-f]{8}Q[0-9]+QXZ)"
+        parts = re.split(marker, text)
+        if len(parts) == 1:
+            return self._translate_prose(text)
+        output = []
+        for index, part in enumerate(parts):
+            if index % 2 or not re.search(r"[^\\W\\d_]", part):
+                output.append(part)
+                continue
+            leading = part[:len(part) - len(part.lstrip())]
+            trailing = part[len(part.rstrip()):]
+            output.append(leading + self._translate_prose(part.strip()).strip() + trailing)
+        return "".join(output)
+
+    def _translate_prose(self, text):
         if self.model is None: raise ValueError("Modèle absent")
         import torch
         family = self.manifest["family"]

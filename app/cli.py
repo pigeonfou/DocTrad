@@ -81,7 +81,7 @@ def model_action(action, model_id):
             protected, mapping = protect(source)
             try:
                 response = httpx.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":item["id"],"revision":item["revision"],"texts":[protected]}, timeout=300, trust_env=False)
-                if response.status_code != 200: raise SystemExit("Runtime indisponible : benchmark interrompu")
+                if response.status_code != 200: raise SystemExit(f"Runtime indisponible (HTTP {response.status_code}) : {response.text}")
                 result = response.json(); peak_rss = result.get("runtime_peak_rss_kb")
                 target = restore(result["texts"][0], mapping)
                 ok = not check(source, target)
@@ -101,6 +101,8 @@ def model_action(action, model_id):
                 other["default"] = False; save_manifest(other)
         item["default"] = True
     save_manifest(item)
+    if action == "benchmark" and item["benchmark"]["technical_score"] < 1.0:
+        raise SystemExit("Benchmark technique échoué : données protégées altérées ; modèle à corriger.")
 
 def save_manifest(item):
     target = Path(item["path"]) / "manifest.json"
