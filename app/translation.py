@@ -1,0 +1,62 @@
+from abc import ABC, abstractmethod
+from threading import RLock
+
+class TranslationEngine(ABC):
+    @abstractmethod
+    def load(self, manifest): ...
+    @abstractmethod
+    def unload(self): ...
+    @abstractmethod
+    def translate(self, text): ...
+    def translate_batch(self, texts): return [self.translate(t) for t in texts]
+    @abstractmethod
+    def health(self): ...
+    def capabilities(self): return {"source": "en", "target": "fr", "cpu": True, "gpu": True}
+
+class TransformersEngine(TranslationEngine):
+    def __init__(self): self.model = self.tokenizer = self.manifest = None
+    def load(self, manifest):
+        import torch
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+        device = manifest.get("device", "cpu")
+        if device == "cuda" and not torch.cuda.is_available(): raise ValueError("GPU CUDA indisponible")
+        torch.set_num_threads(max(1, min(4, ( __import__('os').cpu_count() or 2) - 1)))
+        tokenizer = AutoTokenizer.from_pretrained(manifest["path"], local_files_only=True, trust_remote_code=False)
+        model = AutoModelForSeq2SeqLM.from_pretrained(manifest["path"], local_files_only=True, trust_remote_code=False, use_safetensors=True)
+        model = model.to(device).eval()
+        self.model, self.tokenizer, self.manifest = model, tokenizer, manifest
+    def unload(self):
+        self.model = self.tokenizer = self.manifest = None
+        import gc
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available(): torch.cuda.empty_cache()
+        except ImportError: pass
+    def health(self): return {"loaded": self.model is not None, "model": self.manifest and self.manifest["id"]}
+    def translate(self, text):
+        if self.model is None: raise ValueError("Modèle absent")
+        import torch
+        family = self.manifest["family"]
+        if family == "m2m100": self.tokenizer.src_lang = "en"
+        inputs = self.tokenizer(("<2fr> " if family == "madlad" else "") + text, return_tensors="pt", truncation=False)
+        if inputs.input_ids.shape[1] > 480: raise ValueError("Segment trop long pour le modèle ; réduire sa taille")
+        inputs = inputs.to(self.model.device)
+        kwargs = {"forced_bos_token_id": self.tokenizer.get_lang_id("fr")} if family == "m2m100" else {}
+        with torch.inference_mode(): output = self.model.generate(**inputs, max_new_tokens=512, **kwargs)
+        return self.tokenizer.decode(output[0], skip_special_tokens=True)
+
+class Runtime:
+    """A single process owns weights; all switches and inference are serialized."""
+    def __init__(self): self.engine = TransformersEngine(); self.lock = RLock()
+    def translate(self, manifest, texts):
+        with self.lock:
+            old = self.engine.manifest
+            if not old or (old["id"], old["revision"]) != (manifest["id"], manifest["revision"]):
+                self.engine.unload()
+                try: self.engine.load(manifest)
+                except Exception:
+                    self.engine.unload()
+                    if old: self.engine.load(old)
+                    raise
+            return self.engine.translate_batch(texts)

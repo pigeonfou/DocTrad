@@ -1,0 +1,25 @@
+[Unit]
+Description=DocTrad translation
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=docutranslate
+Group=docutranslate
+WorkingDirectory=/opt/docutranslate/current
+EnvironmentFile=/etc/docutranslate/docutranslate.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/docutranslate/current/.venv/bin/uvicorn app.runtime:app --host 127.0.0.1 --port 8091 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/docutranslate /var/cache/docutranslate
+UMask=0077
+TimeoutStopSec=330
+
+[Install]
+WantedBy=multi-user.target

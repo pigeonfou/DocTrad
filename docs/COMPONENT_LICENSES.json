@@ -1,0 +1,1061 @@
+[
+  {
+    "name": "annotated-doc",
+    "version": "0.0.5",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/fastapi/annotated-doc",
+      "Documentation, https://github.com/fastapi/annotated-doc",
+      "Repository, https://github.com/fastapi/annotated-doc",
+      "Issues, https://github.com/fastapi/annotated-doc/issues",
+      "Changelog, https://github.com/fastapi/annotated-doc/release-notes.md"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "annotated-types",
+    "version": "0.8.0",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/annotated-types/annotated-types",
+      "Source, https://github.com/annotated-types/annotated-types",
+      "Changelog, https://github.com/annotated-types/annotated-types/releases"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "anyio",
+    "version": "4.15.1",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://anyio.readthedocs.io/en/latest/",
+      "Changelog, https://anyio.readthedocs.io/en/stable/versionhistory.html",
+      "Source code, https://github.com/agronholm/anyio",
+      "Issue tracker, https://github.com/agronholm/anyio/issues"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "argon2-cffi",
+    "version": "25.1.0",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://argon2-cffi.readthedocs.io/",
+      "Changelog, https://github.com/hynek/argon2-cffi/blob/main/CHANGELOG.md",
+      "GitHub, https://github.com/hynek/argon2-cffi",
+      "Funding, https://github.com/sponsors/hynek",
+      "Tidelift, https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "argon2-cffi-bindings",
+    "version": "26.1.0",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Tidelift, https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek",
+      "Changelog, https://github.com/hynek/argon2-cffi-bindings/blob/main/CHANGELOG.md",
+      "GitHub, https://github.com/hynek/argon2-cffi-bindings",
+      "Funding, https://github.com/sponsors/hynek"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "certifi",
+    "version": "2026.7.22",
+    "license_expression": null,
+    "license": "MPL-2.0",
+    "source": "https://github.com/certifi/python-certifi",
+    "project_urls": [
+      "Source, https://github.com/certifi/python-certifi"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "cffi",
+    "version": "2.1.1",
+    "license_expression": "MIT-0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://cffi.readthedocs.io/",
+      "Changelog, https://cffi.readthedocs.io/en/latest/whatsnew.html",
+      "Download, https://github.com/python-cffi/cffi/releases",
+      "Contact, https://groups.google.com/forum/#!forum/python-cffi",
+      "Source Code, https://github.com/python-cffi/cffi",
+      "Issue Tracker, https://github.com/python-cffi/cffi/issues"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "charset-normalizer",
+    "version": "3.5.2",
+    "license_expression": null,
+    "license": "MIT",
+    "source": null,
+    "project_urls": [
+      "Changelog, https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md",
+      "Documentation, https://charset-normalizer.readthedocs.io/",
+      "Code, https://github.com/jawah/charset_normalizer",
+      "Issue tracker, https://github.com/jawah/charset_normalizer/issues"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "click",
+    "version": "8.5.0",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Changes, https://click.palletsprojects.com/page/changes/",
+      "Chat, https://discord.gg/pallets",
+      "Documentation, https://click.palletsprojects.com/",
+      "Donate, https://palletsprojects.com/donate",
+      "Source, https://github.com/pallets/click/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "cloudpickle",
+    "version": "3.1.2",
+    "license_expression": null,
+    "license": "BSD-3-Clause",
+    "source": "https://github.com/cloudpipe/cloudpickle",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "cuda-bindings",
+    "version": "13.4.3",
+    "license_expression": "Apache-2.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Repository, https://github.com/NVIDIA/cuda-python",
+      "Documentation, https://nvidia.github.io/cuda-python/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "cuda-pathfinder",
+    "version": "1.8.3",
+    "license_expression": "Apache-2.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Repository, https://github.com/NVIDIA/cuda-python",
+      "Documentation, https://nvidia.github.io/cuda-python/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "cuda-toolkit",
+    "version": "13.0.3.0",
+    "license_expression": null,
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "homepage, https://developer.nvidia.com/cuda-toolkit",
+      "documentation, https://docs.nvidia.com/cuda/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "fastapi",
+    "version": "0.142.2",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/fastapi/fastapi",
+      "Documentation, https://fastapi.tiangolo.com/",
+      "Repository, https://github.com/fastapi/fastapi",
+      "Issues, https://github.com/fastapi/fastapi/issues",
+      "Changelog, https://fastapi.tiangolo.com/release-notes/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "filelock",
+    "version": "4.0.12",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://py-filelock.readthedocs.io",
+      "Homepage, https://github.com/tox-dev/py-filelock",
+      "Source, https://github.com/tox-dev/py-filelock",
+      "Tracker, https://github.com/tox-dev/py-filelock/issues"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "fsspec",
+    "version": "2026.9.0",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Changelog, https://filesystem-spec.readthedocs.io/en/latest/changelog.html",
+      "Documentation, https://filesystem-spec.readthedocs.io/en/latest/",
+      "Homepage, https://github.com/fsspec/filesystem_spec"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "h11",
+    "version": "0.16.0",
+    "license_expression": null,
+    "license": "MIT",
+    "source": "https://github.com/python-hyper/h11",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "hf-xet",
+    "version": "1.6.0",
+    "license_expression": "Apache-2.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://huggingface.co/docs/hub/xet/index",
+      "Homepage, https://github.com/huggingface/xet-core",
+      "Issues, https://github.com/huggingface/xet-core/issues",
+      "Repository, https://github.com/huggingface/xet-core.git"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "httpcore",
+    "version": "1.0.9",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://www.encode.io/httpcore",
+      "Homepage, https://www.encode.io/httpcore/",
+      "Source, https://github.com/encode/httpcore"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "httpx",
+    "version": "0.28.1",
+    "license_expression": null,
+    "license": "BSD-3-Clause",
+    "source": null,
+    "project_urls": [
+      "Changelog, https://github.com/encode/httpx/blob/master/CHANGELOG.md",
+      "Documentation, https://www.python-httpx.org",
+      "Homepage, https://github.com/encode/httpx",
+      "Source, https://github.com/encode/httpx"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "huggingface_hub",
+    "version": "1.33.0",
+    "license_expression": null,
+    "license": "Apache-2.0",
+    "source": "https://github.com/huggingface/huggingface_hub",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "idna",
+    "version": "3.20",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Changelog, https://github.com/kjd/idna/blob/master/HISTORY.md",
+      "Issue tracker, https://github.com/kjd/idna/issues",
+      "Source, https://github.com/kjd/idna"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "iniconfig",
+    "version": "2.3.0",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/pytest-dev/iniconfig"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "itsdangerous",
+    "version": "2.2.0",
+    "license_expression": null,
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Changes, https://itsdangerous.palletsprojects.com/changes/",
+      "Chat, https://discord.gg/pallets",
+      "Documentation, https://itsdangerous.palletsprojects.com/",
+      "Donate, https://palletsprojects.com/donate",
+      "Source, https://github.com/pallets/itsdangerous/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "Jinja2",
+    "version": "3.1.6",
+    "license_expression": null,
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Changes, https://jinja.palletsprojects.com/changes/",
+      "Chat, https://discord.gg/pallets",
+      "Documentation, https://jinja.palletsprojects.com/",
+      "Donate, https://palletsprojects.com/donate",
+      "Source, https://github.com/pallets/jinja/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "joblib",
+    "version": "1.6.0",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://joblib.readthedocs.io",
+      "Source, https://github.com/joblib/joblib"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "lxml",
+    "version": "6.1.3",
+    "license_expression": null,
+    "license": "BSD-3-Clause",
+    "source": "https://lxml.de/",
+    "project_urls": [
+      "Source, https://github.com/lxml/lxml",
+      "Bug Tracker, https://bugs.launchpad.net/lxml"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "markdown-it-py",
+    "version": "4.2.0",
+    "license_expression": null,
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://markdown-it-py.readthedocs.io",
+      "Homepage, https://github.com/executablebooks/markdown-it-py"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "MarkupSafe",
+    "version": "3.0.4",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Donate, https://palletsprojects.com/donate",
+      "Documentation, https://markupsafe.palletsprojects.com/",
+      "Changes, https://markupsafe.palletsprojects.com/page/changes/",
+      "Source, https://github.com/pallets/markupsafe/",
+      "Chat, https://discord.gg/pallets"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "mdurl",
+    "version": "0.1.2",
+    "license_expression": null,
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/executablebooks/mdurl"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "mpmath",
+    "version": "1.3.0",
+    "license_expression": null,
+    "license": "BSD",
+    "source": "http://mpmath.org/",
+    "project_urls": [
+      "Source, https://github.com/fredrik-johansson/mpmath",
+      "Tracker, https://github.com/fredrik-johansson/mpmath/issues",
+      "Documentation, http://mpmath.org/doc/current/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "networkx",
+    "version": "3.7",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://networkx.org/",
+      "Bug Tracker, https://github.com/networkx/networkx/issues",
+      "Documentation, https://networkx.org/documentation/stable/",
+      "Source Code, https://github.com/networkx/networkx"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "numpy",
+    "version": "2.5.3",
+    "license_expression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "homepage, https://numpy.org",
+      "documentation, https://numpy.org/doc/",
+      "source, https://github.com/numpy/numpy",
+      "download, https://pypi.org/project/numpy/#files",
+      "tracker, https://github.com/numpy/numpy/issues",
+      "release notes, https://numpy.org/doc/stable/release"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cublas",
+    "version": "13.1.1.3",
+    "license_expression": "LicenseRef-NVIDIA-Proprietary",
+    "license": null,
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cuda-cupti",
+    "version": "13.0.85",
+    "license_expression": null,
+    "license": "LicenseRef-NVIDIA-Proprietary",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cuda-nvrtc",
+    "version": "13.0.88",
+    "license_expression": null,
+    "license": "LicenseRef-NVIDIA-Proprietary",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cuda-runtime",
+    "version": "13.0.96",
+    "license_expression": "LicenseRef-NVIDIA-Proprietary",
+    "license": null,
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cudnn-cu13",
+    "version": "9.24.0.43",
+    "license_expression": "LicenseRef-NVIDIA-Proprietary",
+    "license": null,
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cufft",
+    "version": "12.0.0.61",
+    "license_expression": null,
+    "license": "LicenseRef-NVIDIA-Proprietary",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cufile",
+    "version": "1.15.1.6",
+    "license_expression": null,
+    "license": "LicenseRef-NVIDIA-Proprietary",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-curand",
+    "version": "10.4.0.35",
+    "license_expression": null,
+    "license": "LicenseRef-NVIDIA-Proprietary",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cusolver",
+    "version": "12.0.4.66",
+    "license_expression": null,
+    "license": "LicenseRef-NVIDIA-Proprietary",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cusparse",
+    "version": "12.6.3.3",
+    "license_expression": null,
+    "license": "LicenseRef-NVIDIA-Proprietary",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-cusparselt-cu13",
+    "version": "0.8.1",
+    "license_expression": null,
+    "license": "NVIDIA Proprietary Software",
+    "source": "https://developer.nvidia.com/cusparselt",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-nccl-cu13",
+    "version": "2.30.7",
+    "license_expression": "LicenseRef-NVIDIA-Proprietary",
+    "license": null,
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-nvjitlink",
+    "version": "13.4.92",
+    "license_expression": "LicenseRef-NVIDIA-Proprietary",
+    "license": null,
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-nvshmem-cu13",
+    "version": "3.4.5",
+    "license_expression": "LicenseRef-NVIDIA-Proprietary",
+    "license": null,
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "nvidia-nvtx",
+    "version": "13.0.85",
+    "license_expression": null,
+    "license": "Apache 2.0",
+    "source": "https://developer.nvidia.com/cuda-zone",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "opentelemetry-api",
+    "version": "1.45.0",
+    "license_expression": "Apache-2.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api",
+      "Repository, https://github.com/open-telemetry/opentelemetry-python"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "packaging",
+    "version": "26.3",
+    "license_expression": "Apache-2.0 OR BSD-2-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Documentation, https://packaging.pypa.io/",
+      "Source, https://github.com/pypa/packaging"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pillow",
+    "version": "12.3.0",
+    "license_expression": "MIT-CMU",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Release notes, https://pillow.readthedocs.io/en/stable/releasenotes/index.html",
+      "Changelog, https://github.com/python-pillow/Pillow/releases",
+      "Documentation, https://pillow.readthedocs.io",
+      "Funding, https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=pypi",
+      "Homepage, https://python-pillow.github.io",
+      "Mastodon, https://fosstodon.org/@pillow",
+      "Source, https://github.com/python-pillow/Pillow"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pip",
+    "version": "25.0.1",
+    "license_expression": null,
+    "license": "MIT",
+    "source": null,
+    "project_urls": [
+      "Homepage, https://pip.pypa.io/",
+      "Documentation, https://pip.pypa.io",
+      "Source, https://github.com/pypa/pip",
+      "Changelog, https://pip.pypa.io/en/stable/news/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pluggy",
+    "version": "1.6.0",
+    "license_expression": null,
+    "license": "MIT",
+    "source": null,
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "psycopg",
+    "version": "3.3.6",
+    "license_expression": "LGPL-3.0-only",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://psycopg.org/",
+      "Documentation, https://psycopg.org/psycopg3/docs/",
+      "Changes, https://psycopg.org/psycopg3/docs/news.html",
+      "Code, https://github.com/psycopg/psycopg",
+      "Issue Tracker, https://github.com/psycopg/psycopg/issues",
+      "Funding, https://github.com/sponsors/dvarrazzo"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "psycopg-binary",
+    "version": "3.3.6",
+    "license_expression": "LGPL-3.0-only",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://psycopg.org/",
+      "Documentation, https://psycopg.org/psycopg3/docs/",
+      "Changes, https://psycopg.org/psycopg3/docs/news.html",
+      "Code, https://github.com/psycopg/psycopg",
+      "Issue Tracker, https://github.com/psycopg/psycopg/issues",
+      "Funding, https://github.com/sponsors/dvarrazzo"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pycparser",
+    "version": "3.0",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/eliben/pycparser"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pydantic",
+    "version": "2.13.5",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/pydantic/pydantic",
+      "Documentation, https://docs.pydantic.dev",
+      "Funding, https://github.com/sponsors/samuelcolvin",
+      "Source, https://github.com/pydantic/pydantic",
+      "Changelog, https://docs.pydantic.dev/latest/changelog/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pydantic_core",
+    "version": "2.46.5",
+    "license_expression": "MIT",
+    "license": null,
+    "source": "https://github.com/pydantic/pydantic",
+    "project_urls": [
+      "Funding, https://github.com/sponsors/samuelcolvin",
+      "Homepage, https://github.com/pydantic",
+      "Source, https://github.com/pydantic/pydantic/tree/main/pydantic-core"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "Pygments",
+    "version": "2.21.0",
+    "license_expression": "BSD-2-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://pygments.org",
+      "Documentation, https://pygments.org/docs",
+      "Source, https://github.com/pygments/pygments",
+      "Bug Tracker, https://github.com/pygments/pygments/issues",
+      "Changelog, https://github.com/pygments/pygments/blob/master/CHANGES"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pypdf",
+    "version": "6.19.0",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Bug Reports, https://github.com/py-pdf/pypdf/issues",
+      "Changelog, https://pypdf.readthedocs.io/en/latest/meta/CHANGELOG.html",
+      "Documentation, https://pypdf.readthedocs.io/en/latest/",
+      "Source, https://github.com/py-pdf/pypdf"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "pytest",
+    "version": "9.1.1",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Changelog, https://docs.pytest.org/en/stable/changelog.html",
+      "Contact, https://docs.pytest.org/en/stable/contact.html",
+      "Funding, https://docs.pytest.org/en/stable/sponsor.html",
+      "Homepage, https://docs.pytest.org/en/latest/",
+      "Source, https://github.com/pytest-dev/pytest",
+      "Tracker, https://github.com/pytest-dev/pytest/issues"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "python-docx",
+    "version": "1.2.0",
+    "license_expression": null,
+    "license": "MIT",
+    "source": null,
+    "project_urls": [
+      "Changelog, https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst",
+      "Documentation, https://python-docx.readthedocs.org/en/latest/",
+      "Homepage, https://github.com/python-openxml/python-docx",
+      "Repository, https://github.com/python-openxml/python-docx"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "python-multipart",
+    "version": "0.0.32",
+    "license_expression": "Apache-2.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/Kludex/python-multipart",
+      "Documentation, https://kludex.github.io/python-multipart/",
+      "Changelog, https://github.com/Kludex/python-multipart/blob/master/CHANGELOG.md",
+      "Source, https://github.com/Kludex/python-multipart"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "python-pptx",
+    "version": "1.0.2",
+    "license_expression": null,
+    "license": "MIT",
+    "source": null,
+    "project_urls": [
+      "Changelog, https://github.com/scanny/python-pptx/blob/master/HISTORY.rst",
+      "Documentation, https://python-pptx.readthedocs.io/en/latest/",
+      "Homepage, https://github.com/scanny/python-pptx",
+      "Repository, https://github.com/scanny/python-pptx"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "PyYAML",
+    "version": "6.0.3",
+    "license_expression": null,
+    "license": "MIT",
+    "source": "https://pyyaml.org/",
+    "project_urls": [
+      "Bug Tracker, https://github.com/yaml/pyyaml/issues",
+      "CI, https://github.com/yaml/pyyaml/actions",
+      "Documentation, https://pyyaml.org/wiki/PyYAMLDocumentation",
+      "Mailing lists, http://lists.sourceforge.net/lists/listinfo/yaml-core",
+      "Source Code, https://github.com/yaml/pyyaml"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "regex",
+    "version": "2026.9.29",
+    "license_expression": "Apache-2.0 AND CNRI-Python",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/mrabarnett/mrab-regex"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "reportlab",
+    "version": "5.0.1",
+    "license_expression": null,
+    "license": "BSD license (see license.txt for details), Copyright (c) 2000-2025, ReportLab Inc.",
+    "source": "https://www.reportlab.com/",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "rich",
+    "version": "15.0.0",
+    "license_expression": null,
+    "license": "MIT",
+    "source": null,
+    "project_urls": [
+      "Documentation, https://rich.readthedocs.io/en/latest/",
+      "Homepage, https://github.com/Textualize/rich"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "sacremoses",
+    "version": "0.2.0",
+    "license_expression": null,
+    "license": null,
+    "source": "https://github.com/hplt-project/sacremoses",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "safetensors",
+    "version": "0.8.0",
+    "license_expression": null,
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/huggingface/safetensors",
+      "Source, https://github.com/huggingface/safetensors"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "sentencepiece",
+    "version": "0.2.2",
+    "license_expression": "Apache-2.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/google/sentencepiece"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "setuptools",
+    "version": "84.0.0",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Source, https://github.com/pypa/setuptools",
+      "Documentation, https://setuptools.pypa.io/",
+      "Changelog, https://setuptools.pypa.io/en/stable/history.html"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "shellingham",
+    "version": "1.5.4",
+    "license_expression": null,
+    "license": "ISC License",
+    "source": "https://github.com/sarugaku/shellingham",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "SQLAlchemy",
+    "version": "2.1.3",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://www.sqlalchemy.org",
+      "Documentation, https://docs.sqlalchemy.org",
+      "Changelog, https://docs.sqlalchemy.org/latest/changelog/index.html",
+      "Source Code, https://github.com/sqlalchemy/sqlalchemy",
+      "Issue Tracker, https://github.com/sqlalchemy/sqlalchemy/issues",
+      "Discussions, https://github.com/sqlalchemy/sqlalchemy/discussions"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "starlette",
+    "version": "1.7.0",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/Kludex/starlette",
+      "Documentation, https://starlette.dev/",
+      "Changelog, https://starlette.dev/release-notes/",
+      "Funding, https://github.com/sponsors/Kludex",
+      "Source, https://github.com/Kludex/starlette"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "sympy",
+    "version": "1.14.0",
+    "license_expression": null,
+    "license": "BSD",
+    "source": "https://sympy.org",
+    "project_urls": [
+      "Source, https://github.com/sympy/sympy"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "tokenizers",
+    "version": "0.23.2",
+    "license_expression": null,
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/huggingface/tokenizers",
+      "Source, https://github.com/huggingface/tokenizers"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "torch",
+    "version": "2.14.1",
+    "license_expression": "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://pytorch.org",
+      "Repository, https://github.com/pytorch/pytorch",
+      "Documentation, https://pytorch.org/docs",
+      "Issue Tracker, https://github.com/pytorch/pytorch/issues",
+      "Forum, https://discuss.pytorch.org"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "tqdm",
+    "version": "4.70.1",
+    "license_expression": null,
+    "license": "MPL-2.0 AND MIT",
+    "source": null,
+    "project_urls": [
+      "homepage, https://tqdm.github.io",
+      "repository, https://github.com/tqdm/tqdm",
+      "changelog, https://tqdm.github.io/releases",
+      "wiki, https://github.com/tqdm/tqdm/wiki"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "transformers",
+    "version": "5.18.0",
+    "license_expression": null,
+    "license": "Apache 2.0 License",
+    "source": "https://github.com/huggingface/transformers",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "triton",
+    "version": "3.8.0",
+    "license_expression": null,
+    "license": "MIT",
+    "source": "https://github.com/triton-lang/triton/",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "typer",
+    "version": "0.27.2",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/fastapi/typer",
+      "Documentation, https://typer.tiangolo.com",
+      "Repository, https://github.com/fastapi/typer",
+      "Issues, https://github.com/fastapi/typer/issues",
+      "Changelog, https://typer.tiangolo.com/release-notes/"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "typing-inspection",
+    "version": "0.4.4",
+    "license_expression": "MIT",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Homepage, https://github.com/pydantic/typing-inspection",
+      "Documentation, https://pydantic.github.io/typing-inspection/dev/",
+      "Source, https://github.com/pydantic/typing-inspection",
+      "Changelog, https://github.com/pydantic/typing-inspection/blob/main/HISTORY.md"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "typing_extensions",
+    "version": "4.16.0",
+    "license_expression": "PSF-2.0",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Bug Tracker, https://github.com/python/typing_extensions/issues",
+      "Changes, https://github.com/python/typing_extensions/blob/main/CHANGELOG.md",
+      "Documentation, https://typing-extensions.readthedocs.io/",
+      "Home, https://github.com/python/typing_extensions",
+      "Q & A, https://github.com/python/typing/discussions",
+      "Repository, https://github.com/python/typing_extensions"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "uvicorn",
+    "version": "0.54.0",
+    "license_expression": "BSD-3-Clause",
+    "license": null,
+    "source": null,
+    "project_urls": [
+      "Changelog, https://uvicorn.dev/release-notes",
+      "Funding, https://github.com/sponsors/Kludex",
+      "Homepage, https://uvicorn.dev/",
+      "Source, https://github.com/Kludex/uvicorn"
+    ],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  },
+  {
+    "name": "xlsxwriter",
+    "version": "3.2.9",
+    "license_expression": null,
+    "license": "BSD-2-Clause",
+    "source": "https://github.com/jmcnamara/XlsxWriter",
+    "project_urls": [],
+    "restrictions": "See upstream license notices; metadata is not a redistribution approval"
+  }
+]

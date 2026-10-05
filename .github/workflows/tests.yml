@@ -1,0 +1,19 @@
+name: DocTrad checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng poppler-utils fonts-dejavu-core
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -r requirements.lock
+      - run: .venv/bin/pip install --no-deps --no-build-isolation -e .
+      - run: .venv/bin/pytest -q
+      - run: .venv/bin/pip check
+      - run: bash -n install.sh scripts/*.sh
