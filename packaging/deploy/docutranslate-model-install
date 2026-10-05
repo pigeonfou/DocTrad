@@ -22,6 +22,7 @@ print(s['id'],s['revision'])
 PY
 )
 [[ -n $MODEL && -n $REVISION ]] || exit 1
+install -d -m 750 -o root -g docutranslate /opt/docutranslate/models
 TARGET=/opt/docutranslate/models/translation/$MODEL
 if [[ ! -e $TARGET ]]; then
   STAGING=$(mktemp -d /var/lib/docutranslate/model-install.XXXXXX)

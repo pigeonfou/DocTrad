@@ -34,7 +34,7 @@ else
   apt-get install -y python3-venv postgresql nginx openssl fonts-dejavu-core tesseract-ocr tesseract-ocr-eng poppler-utils curl
 fi
 id docutranslate &>/dev/null || useradd --system --home /var/lib/docutranslate --shell /usr/sbin/nologin docutranslate
-install -d -m 750 -o root -g docutranslate /opt/docutranslate /etc/docutranslate
+install -d -m 750 -o root -g docutranslate /opt/docutranslate /opt/docutranslate/models /etc/docutranslate
 install -d -m 750 -o docutranslate -g docutranslate /var/lib/docutranslate /var/lib/docutranslate/{uploads,outputs,temp} /var/cache/docutranslate /opt/docutranslate/models/translation
 install -d -m 750 /etc/docutranslate/tls
 install -d -m 750 -o root -g docutranslate /opt/docutranslate/releases

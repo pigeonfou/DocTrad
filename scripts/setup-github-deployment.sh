@@ -6,7 +6,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 [[ -f /etc/docutranslate/docutranslate.env ]] || { echo 'Install DocTrad first' >&2; exit 1; }
 [[ -f /root/.ssh/doctrad-deploy-ed25519 ]] || { echo 'Create/register the read-only SSH deploy key first' >&2; exit 1; }
 id docutranslate-runner &>/dev/null || useradd --create-home --shell /bin/bash docutranslate-runner
-install -d -m 750 -o root -g docutranslate /opt/docutranslate/releases
+install -d -m 750 -o root -g docutranslate /opt/docutranslate/models /opt/docutranslate/releases
 install -d -m 700 /var/lib/docutranslate-deploy
 if [[ ! -d /var/lib/docutranslate-deploy/repository.git ]]; then
   git -c core.sshCommand='ssh -p 443 -o HostName=ssh.github.com -i /root/.ssh/doctrad-deploy-ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes' clone --bare git@github.com:pigeonfou/DocTrad.git /var/lib/docutranslate-deploy/repository.git
