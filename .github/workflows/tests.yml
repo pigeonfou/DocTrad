@@ -63,7 +63,7 @@ jobs:
           }
           trap cleanup EXIT
           mkdir "$TEST_CLUSTER/socket"
-          "$PG_BIN/initdb" -D "$TEST_CLUSTER/db" -A trust -U doctrad_ci --no-locale
+          "$PG_BIN/initdb" -D "$TEST_CLUSTER/db" -A trust -U doctrad_ci --no-locale --encoding=UTF8
           "$PG_BIN/pg_ctl" -D "$TEST_CLUSTER/db" -l "$TEST_CLUSTER/postgres.log" -o "-k $TEST_CLUSTER/socket -c listen_addresses=''" -w start
           "$PG_BIN/createdb" -h "$TEST_CLUSTER/socket" -U doctrad_ci doctrad_test
           export TEST_DATABASE_URL="postgresql+psycopg://doctrad_ci@/doctrad_test?host=$TEST_CLUSTER/socket"
