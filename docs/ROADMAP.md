@@ -4,7 +4,7 @@ Les exigences originales restent dans MISSION.md. Cette version est un développ
 
 | Phase | État et travail restant |
 |---|---|
-| Socle natif | Application testée ; installation systemd/Nginx/PostgreSQL/HTTPS sur véritable Ubuntu et concurrence DB à valider |
+| Socle natif | Application testée ; 39 tests applicatifs/concurrence DB réussis en CI PostgreSQL natif ; installation complète systemd/Nginx/HTTPS sur serveur à valider |
 | Moteur léger | Interface et CPU synthétique testés ; préparer OPUS réel, valider placeholders et vraie traduction |
 | Alternatives | Adaptateurs présents ; installer M2M100/MADLAD, benchmark réel, RAM/VRAM, qualité humaine et métriques |
 | Documents | DOCX/PPTX validés sur fixtures ; intégrer Docling et préserver tableaux/illustrations/pages des PDF |

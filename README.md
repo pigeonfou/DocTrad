@@ -28,7 +28,7 @@ python3 -m venv .venv
 .venv/bin/pytest -q
 ```
 
-Les tests utilisent SQLite uniquement pour isoler les validations applicatives. **La production utilise PostgreSQL** ; les tests de concurrence PostgreSQL restent à exécuter.
+Les tests utilisent SQLite uniquement pour isoler les validations applicatives. **La production utilise PostgreSQL** ; la CI Ubuntu 24.04 a réussi 39 tests sur PostgreSQL natif, dont une réservation concurrente de quatre travaux. Cela ne valide pas encore le déploiement complet du serveur.
 
 Pour installer sur un serveur dédié, lire [INSTALL_UBUNTU_24_04.md](docs/INSTALL_UBUNTU_24_04.md) avant `sudo ./install.sh`. L’installation n’installe aucun modèle implicitement. Préparer et transférer au moins un modèle avant d’attendre une traduction.
 
