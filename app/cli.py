@@ -89,6 +89,7 @@ def model_action(action, model_id):
             technical += int(ok); results.append({"source":source,"target":target,"technical_ok":ok})
         score = {"seconds":time.monotonic()-started,"runtime_peak_rss_kb":peak_rss,"technical_score":technical/len(CORPUS),"quality_score":None,"human_review_required":True,"hardware":platform.platform(),"segments":results}
         with Session.begin() as db: db.add(Benchmark(model_id=item["id"],revision=item["revision"],results=score))
+        print(json.dumps(score, indent=2, ensure_ascii=False))
         item["benchmark"] = score
     elif action == "enable":
         if not registry.verify(item): raise SystemExit("Modèle invalide")

@@ -20,3 +20,4 @@ def test_protected_values_never_enter_translation_model():
         assert check(source, target) == []
     assert restore(engine.translate("Power supply voltage: ZXQabcdef12Q0QXZ."), {"ZXQabcdef12Q0QXZ": "12 VDC"}) == "Tension d'alimentation : 12 VDC."
     assert seen
+    assert all(any(character.isalpha() for character in part) for part in seen)

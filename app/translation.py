@@ -43,7 +43,7 @@ class TransformersEngine(TranslationEngine):
             return self._translate_prose(text)
         output = []
         for index, part in enumerate(parts):
-            if index % 2 or not re.search(r"[^\\W\\d_]", part):
+            if index % 2 or not re.search(r"[^\W\d_]", part):
                 output.append(part)
                 continue
             leading = part[:len(part) - len(part.lstrip())]
