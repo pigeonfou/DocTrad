@@ -165,10 +165,10 @@ Exécuter sur le serveur **la commande d'installation du service fournie par Clo
 ```bash
 sudo cloudflared service install JETON_DU_TUNNEL
 sudo systemctl enable --now cloudflared
-sudo systemctl status cloudflared --no-pager
+sudo systemctl show cloudflared -p ActiveState -p SubState
 ```
 
-Ne pas copier le jeton ici ni le mettre dans GitHub. Si un service cloudflared existe déjà sur ce serveur, ajouter la route à son tunnel plutôt que tenter une seconde installation du même service.
+Ne pas copier le jeton ici ni le mettre dans GitHub. Éviter de partager un `systemctl status cloudflared` complet : la ligne de commande du service peut contenir le jeton. La commande `systemctl show` ci-dessous affiche uniquement son état. Si un service cloudflared existe déjà sur ce serveur, ajouter la route à son tunnel plutôt que tenter une seconde installation du même service.
 
 Dans le tunnel, **Routes → Add route → Published application** :
 
@@ -190,7 +190,7 @@ Documentation : https://developers.cloudflare.com/tunnel/get-started/ et https:/
 
 ```bash
 sudo /usr/local/sbin/docutranslate-deploy --status
-sudo systemctl status cloudflared --no-pager
+sudo systemctl show cloudflared -p ActiveState -p SubState
 ```
 
 Depuis un poste hors du LAN, visiter `https://doctrad.VOTRE-DOMAINE/login` et vérifier la page de connexion. S'authentifier avec le compte de test. Cloudflare Access peut être ajouté, mais une première authentification Access devra alors aussi être effectuée dans le navigateur partagé ; ne pas considérer son activation comme une connexion automatique de ChatGPT.
