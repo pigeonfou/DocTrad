@@ -7,7 +7,7 @@ import shutil
 import time
 from pathlib import Path
 from sqlalchemy import select, text
-from .config import DATA, MODELS, RUNTIME_URL
+from .config import DATA, MODELS, RUNTIME_URL, RUNTIME_SECRET
 from .db import Base, engine, Session, User, Job, Benchmark
 from .auth import password_hash
 from .registry import Registry
@@ -34,6 +34,7 @@ def diagnostic():
     except Exception: system["database"] = "UNAVAILABLE"
     heartbeat = DATA / "worker-heartbeat"
     system["worker"] = "OK" if heartbeat.exists() and time.time() - heartbeat.stat().st_mtime < 600 else "UNAVAILABLE"
+    system["models_ready"] = len([m for m in Registry().list() if m["status"] == "ready" and m.get("enabled",True)])
     system["OCR"] = "Tesseract local" if shutil.which("tesseract") else "UNAVAILABLE"
     try:
         import httpx
@@ -56,18 +57,21 @@ def model_action(action, model_id):
         print("OK"); return
     if action == "info": print(json.dumps(item, indent=2)); return
     if action == "benchmark":
-        from .translation import Runtime
+        import httpx
         from .quality import protect, restore, check
         import resource
-        runtime = Runtime(); started = time.monotonic(); results = []; technical = 0
+        started = time.monotonic(); results = []; technical = 0; peak_rss = None
         for source in CORPUS:
             protected, mapping = protect(source)
             try:
-                target = restore(runtime.translate(item, [protected])[0], mapping)
+                response = httpx.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":item["id"],"revision":item["revision"],"texts":[protected]}, timeout=300, trust_env=False)
+                if response.status_code != 200: raise SystemExit("Runtime indisponible : benchmark interrompu")
+                result = response.json(); peak_rss = result.get("runtime_peak_rss_kb")
+                target = restore(result["texts"][0], mapping)
                 ok = not check(source, target)
             except ValueError: target = "PROTECTED DATA FAILURE"; ok = False
             technical += int(ok); results.append({"source":source,"target":target,"technical_ok":ok})
-        score = {"seconds":time.monotonic()-started,"peak_rss_kb":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,"technical_score":technical/len(CORPUS),"quality_score":None,"human_review_required":True,"hardware":platform.platform(),"segments":results}
+        score = {"seconds":time.monotonic()-started,"runtime_peak_rss_kb":peak_rss,"technical_score":technical/len(CORPUS),"quality_score":None,"human_review_required":True,"hardware":platform.platform(),"segments":results}
         with Session.begin() as db: db.add(Benchmark(model_id=item["id"],revision=item["revision"],results=score))
         item["benchmark"] = score
     elif action == "enable":
@@ -92,7 +96,7 @@ def main():
     subs = parser.add_subparsers(dest="command", required=True)
     subs.add_parser("migrate")
     user = subs.add_parser("create-user"); user.add_argument("username"); user.add_argument("--admin",action="store_true")
-    subs.add_parser("diagnose"); subs.add_parser("health")
+    subs.add_parser("diagnose"); subs.add_parser("health"); subs.add_parser("benchmark-all")
     recover = subs.add_parser("recover"); recover.add_argument("job_id")
     model = subs.add_parser("model"); model.add_argument("action",choices=["list","info","verify","enable","disable","set-default","benchmark"]); model.add_argument("model_id",nargs="?")
     args = parser.parse_args()
@@ -103,7 +107,7 @@ def main():
         with Session.begin() as db: db.add(User(username=args.username,password=password_hash(password),admin=args.admin))
     elif args.command in {"diagnose","health"}:
         report = diagnostic(); print(json.dumps(report, indent=2, ensure_ascii=False))
-        if args.command == "health" and (report["database"] != "OK" or report["worker"] != "OK" or report["translation_runtime"] == "UNAVAILABLE"): raise SystemExit(1)
+        if args.command == "health" and (report["database"] != "OK" or report["worker"] != "OK" or report["translation_runtime"] == "UNAVAILABLE" or not report["models_ready"] or report["OCR"] == "UNAVAILABLE"): raise SystemExit(1)
     elif args.command == "recover":
         # Operator explicitly confirms old worker is stopped before invoking.
         from .db import Segment
@@ -113,5 +117,9 @@ def main():
             if not job or job.status not in {"running","failed","exporting"}: raise SystemExit("État incompatible")
             db.execute(delete(Segment).where(Segment.job_id==job.id)); job.status="queued"; job.progress=0; job.error=""
     elif args.command == "model": model_action(args.action,args.model_id)
+    elif args.command == "benchmark-all":
+        models = [m for m in Registry().list() if m["status"] == "ready" and m.get("enabled", True)]
+        if not models: raise SystemExit("Aucun modèle local vérifié à benchmarker")
+        for model in models: model_action("benchmark", model["id"])
 
 if __name__ == "__main__": main()

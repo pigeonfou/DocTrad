@@ -2,6 +2,17 @@
 
 Compte administrateur demandé à l’installation, sans mot de passe par défaut. La page Système affiche le diagnostic et les modèles locaux. Activation/désactivation/benchmark/défaut s’effectuent actuellement par CLI ; les boutons web sont à réaliser.
 
+Commandes d’exploitation prévues par l’installateur :
+
+```bash
+sudo /opt/docutranslate/bin/diagnose
+sudo /opt/docutranslate/bin/docutranslate-health
+sudo /opt/docutranslate/bin/docutranslate-model list
+sudo /opt/docutranslate/bin/benchmark-models
+```
+
+Les wrappers chargent la configuration protégée et exécutent le code sous le compte de service. Leur installation reste à valider sur Ubuntu natif.
+
 Depuis un shell root sur le serveur :
 
 ```bash

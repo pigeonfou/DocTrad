@@ -22,6 +22,9 @@ def translate(body: Request, x_runtime_secret: str = Header(default="")):
         manifest = Registry().choose(body.model_id)
         if manifest["revision"] != body.revision: raise ValueError("Révision du job indisponible")
         if any(len(t) > 5000 for t in body.texts): raise ValueError("Segment trop long")
-        return {"texts": runtime.translate(manifest, body.texts)}
+        import time, resource
+        started = time.monotonic()
+        texts = runtime.translate(manifest, body.texts)
+        return {"texts": texts, "seconds": time.monotonic() - started, "runtime_peak_rss_kb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}
     except Exception as exc:
         raise HTTPException(503, "Moteur local indisponible : " + type(exc).__name__) from exc

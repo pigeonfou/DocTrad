@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+set -a
+source /etc/docutranslate/docutranslate.env
+set +a
+EXEC=/opt/docutranslate/current/.venv/bin/docutranslate
+ARGS=()
+case $(basename "$0") in
+  diagnose) ARGS=(diagnose) ;;
+  docutranslate-health) ARGS=(health) ;;
+  docutranslate-model) ARGS=(model "$@") ;;
+  benchmark-models) ARGS=(benchmark-all) ;;
+  *) echo "Unknown command" >&2; exit 1 ;;
+esac
+if [[ $EUID -eq 0 ]]; then
+  exec runuser -u docutranslate -- "$EXEC" "${ARGS[@]}"
+fi
+[[ $(id -un) == docutranslate ]] || { echo "Use the docutranslate service account" >&2; exit 1; }
+exec "$EXEC" "${ARGS[@]}"

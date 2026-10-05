@@ -10,10 +10,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng poppler-utils fonts-dejavu-core
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng poppler-utils fonts-dejavu-core postgresql
       - run: python -m venv .venv
       - run: .venv/bin/pip install -r requirements.lock
       - run: .venv/bin/pip install --no-deps --no-build-isolation -e .
+      - name: Prepare native PostgreSQL test database
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE USER doctrad_test PASSWORD 'ephemeral-ci-password';"
+          sudo -u postgres createdb -O doctrad_test doctrad_test
       - run: .venv/bin/pytest -q
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://doctrad_test:ephemeral-ci-password@127.0.0.1/doctrad_test
       - run: .venv/bin/pip check
       - run: bash -n install.sh scripts/*.sh

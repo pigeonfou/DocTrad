@@ -28,3 +28,19 @@ def test_export_after_correction():
     assert claim()=='memory-job';run_job('memory-job')
     from docx import Document
     assert Document(DATA/'outputs/memory-job/translation.docx').paragraphs[0].text=='Alimentation nominale : 12 VDC.'
+
+
+def test_postgres_claim_is_atomic():
+    import pytest
+    from app.db import engine
+    if engine.dialect.name != "postgresql":pytest.skip("Native PostgreSQL CI test")
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    with Session.begin() as db:
+        user=User(username="queue-test",password="unused");db.add(user);db.flush()
+        for i in range(4):db.add(Job(id=f"concurrent-{i}",owner_id=user.id,filename="test.docx",suffix=".docx",model_id="opus",model_version="a"*40))
+    gate=Barrier(4)
+    def reserve():gate.wait();return claim()
+    with ThreadPoolExecutor(max_workers=4) as pool:results=list(pool.map(lambda _:reserve(),range(4)))
+    assert len(set(results))==4 and None not in results
+    assert claim() is None

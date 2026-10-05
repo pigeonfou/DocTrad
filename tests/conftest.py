@@ -3,8 +3,13 @@ import tempfile
 from pathlib import Path
 
 TEST_ROOT = Path(tempfile.mkdtemp(prefix="doctrad-tests-"))
-os.environ.update(DATABASE_URL="sqlite:///"+str(TEST_ROOT / "test.sqlite"), DATA_ROOT=str(TEST_ROOT / "data"), MODEL_ROOT=str(TEST_ROOT / "models"), SESSION_SECRET="a"*64, RUNTIME_SECRET="b"*64, COOKIE_SECURE="false")
+os.environ.update(DATABASE_URL=os.environ.get("TEST_DATABASE_URL", "sqlite:///"+str(TEST_ROOT / "test.sqlite")), DATA_ROOT=str(TEST_ROOT / "data"), MODEL_ROOT=str(TEST_ROOT / "models"), SESSION_SECRET="a"*64, RUNTIME_SECRET="b"*64, COOKIE_SECURE="false")
 import pytest
+from sqlalchemy.engine import make_url
+if os.environ.get("TEST_DATABASE_URL"):
+    url=make_url(os.environ["TEST_DATABASE_URL"])
+    if not (url.database or "").endswith("_test"):
+        raise RuntimeError("Test database must end with _test; tests reset all application tables")
 
 @pytest.fixture(autouse=True)
 def database():

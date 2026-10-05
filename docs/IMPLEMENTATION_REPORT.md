@@ -10,7 +10,7 @@ Ubuntu 24.04.3 amd64, Python 3.12.14, environ 9,7 Gio RAM, aucun GPU utilisable.
 
 ## Tests réellement exécutés
 
-- 38 tests pytest réussis, dont OCR Tesseract réel image et PDF scanné ; fixtures fictives PDF natif, scan, DOCX, PPTX et image générées.
+- 38 tests pytest réussis localement (un test supplémentaire de concurrence PostgreSQL est réservé à la CI), dont OCR Tesseract réel image et PDF scanné ; fixtures fictives PDF natif, scan, DOCX, PPTX et image générées.
 - Références exactes `12 VDC`, `J3`, `STM32F407`, `4.5 Nm`, `M4x20`, `CAN`, `RS-485` contrôlées par tests unitaires de protection/réinjection.
 - DOCX : tableau et image embarquée conservés (octets image comparés), traduction textuelle injectée puis export DOCX/PDF vérifié.
 - PPTX : extraction/réinjection/export relus.
@@ -19,6 +19,7 @@ Ubuntu 24.04.3 amd64, Python 3.12.14, environ 9,7 Gio RAM, aucun GPU utilisable.
 - Licence restrictive, checksum altéré, modèle désactivé, CSRF, accès interutilisateurs, XSS et archives dangereuses refusés.
 - Réseau Python non loopback bloqué pour la suite de tests.
 - `pip check`, compilation Python et syntaxe shell contrôlés.
+- Serveur Uvicorn lancé réellement et interrogé en HTTP loopback : login, healthcheck, redirection de la page protégée et fichier CSS local vérifiés. `ready` reste faux sans modèle réel.
 
 Un avertissement de dépréciation Starlette/TestClient avec httpx est présent ; les tests passent. L’interface a été exercée par HTTP ; inspection visuelle complète par navigateur non réalisée.
 

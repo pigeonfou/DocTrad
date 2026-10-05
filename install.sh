@@ -34,6 +34,7 @@ else
 fi
 if [[ ${1:-} == --offline ]]; then
   cp -a "$BUNDLE/models/." /opt/docutranslate/models/translation/
+  chown -R docutranslate:docutranslate /opt/docutranslate/models/translation
 fi
 # Install local package without build isolation or dependency downloads.
 "$RELEASE/.venv/bin/pip" install --no-deps --no-build-isolation "$RELEASE"
@@ -59,6 +60,11 @@ UPLOAD_MAX_SIZE=104857600
 CONFIG
 chmod 640 /etc/docutranslate/docutranslate.env
 chown root:docutranslate /etc/docutranslate /etc/docutranslate/docutranslate.env
+install -d -m 755 /opt/docutranslate/bin
+install -m 755 "$ROOT/bin/docutranslate-tool" /opt/docutranslate/bin/docutranslate-tool
+for command in diagnose docutranslate-health docutranslate-model benchmark-models; do
+  ln -s docutranslate-tool "/opt/docutranslate/bin/$command"
+done
 ln -s "$RELEASE" /opt/docutranslate/current
 set -a
 source /etc/docutranslate/docutranslate.env
