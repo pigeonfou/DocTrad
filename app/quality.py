@@ -16,7 +16,8 @@ def protect(text, glossary=None):
     # One combined pass prevents matching inside generated tokens.
     entries = glossary or {}
     terms = sorted(entries, key=len, reverse=True)
-    pattern = re.compile("|".join([r"(?<!\w)"+re.escape(t)+r"(?!\w)" for t in terms]) + "|" + TECH.pattern + "|" + NUMBERS.pattern, 0)
+    alternatives = [r"(?<!\w)" + re.escape(t) + r"(?!\w)" for t in terms]
+    pattern = re.compile("|".join(alternatives + [TECH.pattern, NUMBERS.pattern]))
     def replace(match):
         value = match.group()
         return save(entries.get(value, value))
