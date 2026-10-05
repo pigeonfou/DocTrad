@@ -9,24 +9,51 @@ import tempfile
 from pathlib import Path
 
 
+def vertical_rules(image):
+    from PIL import Image, ImageChops
+    with Image.open(image) as source:
+        grey = source.convert('L')
+    edges = ImageChops.difference(grey, ImageChops.offset(grey, 1, 0))
+    edges = edges.point(lambda value: 255 if value >= 35 else 0)
+    columns = [x for x in range(1, edges.width)
+               if edges.crop((x, 0, x+1, edges.height)).histogram()[255] > edges.height*.25]
+    # JPEG/antialiasing produces several adjacent edge columns for one rule.
+    groups = []
+    for x in columns:
+        if groups and x-groups[-1][-1] <= 4:
+            groups[-1].append(x)
+        else:
+            groups.append([x])
+    return [round(sum(group)/len(group)) for group in groups]
+
+
 def recognize(image):
     backend = os.environ.get("OCR_BACKEND", "tesseract")
     if backend == "paddle": return paddle(image)
     if backend != "tesseract": raise ValueError("Moteur OCR inconnu")
     if not shutil.which("tesseract"): raise ValueError("Tesseract local absent")
     result = subprocess.run(["tesseract",str(image),"stdout","-l","eng","--psm","3","tsv"],capture_output=True,text=True,timeout=120,check=True)
+    rules = vertical_rules(image)
     lines = {}
     for row in csv.DictReader(result.stdout.splitlines(),delimiter='\t'):
         if not row.get('text','').strip() or float(row['conf']) < 0: continue
         key = (row['block_num'],row['par_num'],row['line_num'])
         left,top,width,height = [int(row[n]) for n in ('left','top','width','height')]
         box = [left,top,left+width,top+height]
+        if (row['text'] == '|' or width < height/3) and any(abs(rule-(left+width/2)) < max(5,width/2) for rule in rules):
+            # A table border is sometimes recognized as the character '|'.
+            continue
         # A large horizontal gap usually separates table cells. Do not translate
         # both columns as one sentence or paint across the intervening border.
         part = 0
         while (*key, part) in lines:
             previous = lines[(*key, part)]
-            if left - previous['box'][2] <= max(height, previous['box'][3]-previous['box'][1])*2.5:
+            boundaries = [rule for rule in rules if previous['box'][0] < rule <= left]
+            crosses_rule = bool(boundaries)
+            if boundaries:
+                previous['box'][2] = min(previous['box'][2], min(boundaries)-2)
+                previous['text'] = previous['text'].rstrip(' |')
+            if not crosses_rule and left - previous['box'][2] <= max(height, previous['box'][3]-previous['box'][1])*2.5:
                 break
             part += 1
         key = (*key, part)

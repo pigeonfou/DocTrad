@@ -72,6 +72,8 @@ def test_tsm_reference_document(tmp_path):
     # Table headings are independent cells, not one phrase across the border.
     assert any(item['text'] == 'Features' for item in segments)
     assert any(item['text'] == 'Capability' for item in segments)
+    assert not any(item['page'] == 2 and 480 < item['box'][1] < 1900
+                   and item['box'][0] < 480 < item['box'][2] for item in segments)
     replacements = {'Features': 'Critères', 'Capability': 'Capacité',
                     'Frequencies': 'Fréquences', 'Data': 'Données',
                     'TECHNICAL FEATURES OF THE': 'CARACTÉRISTIQUES TECHNIQUES'}
