@@ -12,9 +12,10 @@ if [[ ! -d /var/lib/docutranslate-deploy/repository.git ]]; then
   git -c core.sshCommand='ssh -p 443 -o HostName=ssh.github.com -i /root/.ssh/doctrad-deploy-ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes' clone --bare git@github.com:pigeonfou/DocTrad.git /var/lib/docutranslate-deploy/repository.git
 fi
 install -m 755 -o root -g root "$ROOT/packaging/deploy/docutranslate-deploy" /usr/local/sbin/docutranslate-deploy
+install -m 755 -o root -g root "$ROOT/packaging/deploy/docutranslate-model-install" /usr/local/sbin/docutranslate-model-install
 SUDO_RULE=$(mktemp)
 trap 'rm -f "$SUDO_RULE"' EXIT
-printf '%s\n' 'docutranslate-runner ALL=(root) NOPASSWD: /usr/local/sbin/docutranslate-deploy' > "$SUDO_RULE"
+printf '%s\n' 'docutranslate-runner ALL=(root) NOPASSWD: /usr/local/sbin/docutranslate-deploy, /usr/local/sbin/docutranslate-model-install' > "$SUDO_RULE"
 visudo -cf "$SUDO_RULE"
 install -m 440 -o root -g root "$SUDO_RULE" /etc/sudoers.d/docutranslate-deploy
 printf '%s\n' 'Wrapper installed. Register the runner with label doctrad-deploy; see docs/GITHUB_CLOUDFLARE_SETUP.md.'

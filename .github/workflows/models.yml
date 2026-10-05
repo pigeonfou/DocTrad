@@ -1,0 +1,26 @@
+name: DocTrad local model
+on:
+  workflow_run:
+    workflows: [DocTrad deploy]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: doctrad-model-install
+  cancel-in-progress: false
+jobs:
+  install-model:
+    if: github.event.repository.private == true && github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, Linux, X64, doctrad-deploy]
+    timeout-minutes: 45
+    steps:
+      - name: Install and benchmark the configured local model
+        env:
+          DEPLOYED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [[ ! -x /usr/local/sbin/docutranslate-model-install ]]; then
+            echo 'One-time administrator activation required: run scripts/setup-github-deployment.sh from the updated repository.'
+            exit 1
+          fi
+          sudo -n /usr/local/sbin/docutranslate-model-install "$DEPLOYED_SHA"

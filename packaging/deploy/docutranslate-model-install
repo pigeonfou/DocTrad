@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Root-owned administrator command: only the deployed, tested revision is accepted.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+[[ $EUID -eq 0 && $# -eq 1 && $1 =~ ^[0-9a-f]{40}$ ]] || exit 2
+exec 9>/run/lock/docutranslate-deploy.lock
+flock -w 120 9
+APP=$(readlink -f /opt/docutranslate/current)
+[[ $APP == /opt/docutranslate/releases/"$1" ]] || { echo 'Requested commit is not deployed'; exit 1; }
+PYTHON=$APP/.venv/bin/python
+CLI=$APP/.venv/bin/docutranslate
+SPEC=$APP/packaging/models/default.json
+read -r MODEL REVISION < <(python3 - "$SPEC" <<'PY'
+import json,re,sys
+s=json.load(open(sys.argv[1]))
+if s.get('id') not in {'opus-mt-en-fr','m2m100-418m','madlad400-3b'}:
+    raise SystemExit('Unknown model')
+if not re.fullmatch('[0-9a-f]{40}',s.get('revision','')):
+    raise SystemExit('Exact revision required')
+print(s['id'],s['revision'])
+PY
+)
+[[ -n $MODEL && -n $REVISION ]] || exit 1
+TARGET=/opt/docutranslate/models/translation/$MODEL
+if [[ ! -e $TARGET ]]; then
+  STAGING=$(mktemp -d /var/lib/docutranslate/model-install.XXXXXX)
+  chown docutranslate:docutranslate "$STAGING"
+  trap 'rm -rf "$STAGING"' EXIT
+  # Explicit online preparation runs unprivileged, outside the offline services.
+  runuser -u docutranslate -- env HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0 \
+    "$PYTHON" "$APP/scripts/prepare-model.py" "$MODEL" --revision "$REVISION" --output "$STAGING"
+  install -d -m 750 -o docutranslate -g docutranslate /opt/docutranslate/models/translation
+  mv "$STAGING/$MODEL" "$TARGET"
+fi
+set -a
+source /etc/docutranslate/docutranslate.env
+set +a
+runuser -u docutranslate -- "$CLI" model verify "$MODEL"
+runuser -u docutranslate -- "$CLI" model info "$MODEL" | "$PYTHON" -c \
+  'import json,sys; m=json.load(sys.stdin); assert m["revision"] == sys.argv[1], "Installed revision differs; administrator review required"' "$REVISION"
+runuser -u docutranslate -- "$CLI" model set-default "$MODEL"
+for attempt in {1..15}; do
+  curl -fsS --max-time 3 http://127.0.0.1:8091/health >/dev/null && break
+  sleep 2
+done
+runuser -u docutranslate -- "$CLI" model benchmark "$MODEL"
+runuser -u docutranslate -- "$CLI" model info "$MODEL"
+curl -fsS --max-time 10 http://127.0.0.1:8090/health
+echo "MODEL INSTALLED AND BENCHMARKED: $MODEL@$REVISION"
