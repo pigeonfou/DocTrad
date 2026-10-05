@@ -182,6 +182,14 @@ Dans le tunnel, **Routes → Add route → Published application** :
 
 L'URL finale est `https://doctrad.VOTRE-DOMAINE`. Cloudflare crée normalement le CNAME vers `<UUID>.cfargotunnel.com`. En cas de conflit DNS sur ce sous-domaine, vérifier puis supprimer seulement l'ancien enregistrement concerné. Aucun enregistrement A vers votre IP publique n'est nécessaire.
 
+Dans le domaine Cloudflare, créer aussi une **Redirect Rule / Single Redirect** limitée à DocTrad pour forcer HTTPS :
+
+- Condition personnalisée : `(http.host eq "doctrad.VOTRE-DOMAINE" and http.request.scheme eq "http")`, en remplaçant le domaine.
+- Redirection dynamique : `concat("https://", http.host, http.request.uri.path)`.
+- Code : **301** ; **Preserve query string** activé.
+
+Vérifier que `http://doctrad.VOTRE-DOMAINE/login` redirige vers HTTPS. Si tous les sites du domaine utilisent déjà HTTPS, **SSL/TLS → Edge Certificates → Always Use HTTPS** est une alternative globale ; la règle ci-dessus conserve un périmètre limité à DocTrad.
+
 Conserver HTTPS public et les protections de connexion de DocTrad. Ne pas mettre une règle Cache Everything sur ce sous-domaine. Les longues traductions sont asynchrones : elles ne nécessitent pas un proxy HTTP bloqué pendant leur durée.
 
 Documentation : https://developers.cloudflare.com/tunnel/get-started/ et https://developers.cloudflare.com/tunnel/troubleshooting/https-origins/
