@@ -3,7 +3,20 @@ set -euo pipefail
 umask 077
 [[ $EUID -eq 0 ]] || { echo "Run with sudo" >&2; exit 1; }
 source /etc/os-release
-[[ $ID == ubuntu && $VERSION_ID == 24.04 && $(uname -m) == x86_64 ]] || { echo "Ubuntu 24.04 amd64 required" >&2; exit 1; }
+ALLOW_26=0
+if [[ ${1:-} == --experimental-ubuntu26 ]]; then
+  ALLOW_26=1
+  shift
+fi
+[[ $ID == ubuntu && $(uname -m) == x86_64 ]] || { echo "Ubuntu x86_64 required; detected $ID $VERSION_ID $(uname -m)" >&2; exit 1; }
+case $VERSION_ID in
+  24.04) ;;
+  26.04)
+    (( ALLOW_26 )) || { echo "Ubuntu 26.04 detected. Support is experimental: use --experimental-ubuntu26. Validated target: Ubuntu 24.04." >&2; exit 1; }
+    echo "Experimental Ubuntu 26.04 installation: dependencies and services need validation on this server." >&2
+    ;;
+  *) echo "Unsupported Ubuntu version: $VERSION_ID (validated: 24.04; experimental: 26.04)" >&2; exit 1 ;;
+esac
 ROOT=$(cd "$(dirname "$0")" && pwd)
 VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("'"$ROOT"'/pyproject.toml","rb"))["project"]["version"])')
 RELEASE=/opt/docutranslate/releases/$VERSION
