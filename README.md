@@ -46,3 +46,11 @@ Pour installer sur un serveur dédié, lire [INSTALL_UBUNTU_24_04.md](docs/INSTA
 ## Déploiements depuis GitHub et domaine Cloudflare
 
 [Procédure Ubuntu dédiée complète](docs/GITHUB_CLOUDFLARE_SETUP.md) : dépôt privé, runner nommé `doctrad-ubuntu`, label `doctrad-deploy`, wrapper sudo contrôlé et Cloudflare Tunnel sur Nginx local. Le workflow `DocTrad deploy` attend le succès des tests sur `main`. Aucun déploiement réel n'est possible avant la configuration de votre serveur.
+
+
+## Installation des modèles depuis l'interface
+
+Un administrateur peut maintenant ouvrir **Système & modèles**, sélectionner un modèle
+et lancer son téléchargement initial avec suivi d'avancement. Commencer par OPUS anglais
+→ français. La traduction reste locale et hors ligne après installation.
+Voir [la procédure et le dépannage](docs/modeles-telechargement.md).
