@@ -29,8 +29,8 @@ def test_verified_atomic_install_and_idempotence(tmp_path):
     assert all(c[2]['revision']=='a'*40 and c[2]['token'] is False for c in hub.calls if c[0]=='file')
     count=len(hub.calls);download.download_model('opus-mt-en-fr',root,status,hub=hub);assert len(hub.calls)==count
 
-@pytest.mark.parametrize('hub',[Hub(license='cc-by-nc-4.0'),Hub(weights=False)])
-def test_refuses_restricted_license_and_pickle_only(hub,tmp_path):
+def test_refuses_pickle_only(tmp_path):
+    hub=Hub(weights=False)
     with pytest.raises(ValueError):download.download_model('opus-mt-en-fr',tmp_path/'models',tmp_path/'status.json',hub=hub)
     assert not any(c[0]=='file' for c in hub.calls)
     assert not (tmp_path/'models/opus-mt-en-fr').exists()
@@ -112,3 +112,16 @@ def test_cli_requires_explicit_network_authorization(monkeypatch,tmp_path):
     monkeypatch.setattr(download.sys,'argv',['download','opus-mt-en-fr','--model-root',str(root)])
     with pytest.raises(SystemExit) as error:download.main()
     assert error.value.code==2 and not root.exists()
+
+@pytest.mark.parametrize('license_name',['cc-by-nc-4.0',None])
+def test_license_does_not_block_download_or_reuse(tmp_path,license_name):
+    root=tmp_path/'models';status=tmp_path/'status.json';hub=Hub(license=license_name)
+    download.download_model('opus-mt-en-fr',root,status,hub=hub)
+    target=root/'opus-mt-en-fr'
+    assert download.verify_existing(target,'opus-mt-en-fr')
+    manifest=json.loads((target/'manifest.json').read_text())
+    assert manifest['license']==(license_name or 'unknown')
+    assert manifest['usage_policy']=='upstream'
+    count=len(hub.calls)
+    download.download_model('opus-mt-en-fr',root,status,hub=hub)
+    assert len(hub.calls)==count
