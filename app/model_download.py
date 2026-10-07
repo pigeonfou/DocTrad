@@ -92,7 +92,7 @@ def verify_existing(path, model_id):
     try:
         manifest = json.loads((path / 'manifest.json').read_text())
         spec=CATALOG[model_id]
-        if manifest.get('id') != model_id or manifest.get('family') != spec['family'] or manifest.get('license') != spec['license'] or manifest.get('usage_policy') != 'permissive': return False
+        if manifest.get('id') != model_id or manifest.get('family') != spec['family']: return False
         if not re.fullmatch('[a-f0-9]{40}', manifest.get('revision','')): return False
         files=manifest.get('sha256',{})
         if 'config.json' not in files or not any(n.endswith('.safetensors') for n in files): return False
@@ -125,13 +125,12 @@ def download_model(model_id, root, status_file, revision=None, hub=None):
         # Import after choosing online mode. app.config is deliberately not imported here.
         os.environ['HF_HUB_OFFLINE']='0';os.environ['HF_HUB_DISABLE_TELEMETRY']='1';os.environ['HF_HUB_DISABLE_IMPLICIT_TOKEN']='1'
         import huggingface_hub as hub
-    write_status(status_file,status='metadata',message='Vérification de la source et de la licence')
+    write_status(status_file,status='metadata',message='Vérification de la source')
     info=hub.model_info(spec['repo'],revision=revision or 'main',files_metadata=True,token=False)
     commit=info.sha
     if not re.fullmatch('[a-f0-9]{40}',commit or ''):raise ValueError('Révision de la source invalide')
     if revision and commit!=revision:raise ValueError('La révision reçue diffère de la demande')
     card=info.card_data or {}
-    if card.get('license')!=spec['license']:raise ValueError('Licence de la source différente ou absente')
     selected=[]
     upstream_hashes={}
     for file in info.siblings:
@@ -178,7 +177,7 @@ def download_model(model_id, root, status_file, revision=None, hub=None):
         with file.open('rb') as stream:files[name]=hashlib.file_digest(stream,'sha256').hexdigest()
         if name in upstream_hashes and files[name]!=upstream_hashes[name]:raise ValueError('Empreinte SHA-256 différente de la source pour '+name)
     manifest=dict(id=model_id,name=spec['name'],family=spec['family'],profile=spec['profile'],revision=commit,version=commit,
-                  source='https://huggingface.co/'+spec['repo'],license=spec['license'],usage_policy='permissive',
+                  source='https://huggingface.co/'+spec['repo'],license=card.get('license') or 'unknown',usage_policy='upstream',
                   ram_mb=spec['ram_mb'],device='cpu',cpu_compatible=True,gpu_compatible=True,quantization='FP32',
                   enabled=True,default=not any(root.glob('*/manifest.json')),sha256=files,disk_bytes=sum((stage/n).stat().st_size for n in files))
     (stage/'manifest.json').write_text(json.dumps(manifest,indent=2))
