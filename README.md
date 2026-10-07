@@ -6,7 +6,7 @@ Application web native destinée à Ubuntu Server 24.04 amd64, anglais → fran�
 
 - FastAPI, comptes locaux Argon2id, sessions HTTPS, CSRF, séparation des documents par utilisateur.
 - File PostgreSQL avec réservation transactionnelle `FOR UPDATE SKIP LOCKED`. Un worker par défaut ; Redis n’est pas nécessaire.
-- Service unique de traduction locale Transformers : adaptateurs OPUS-MT, M2M100 et MADLAD, modèles sélectionnables, révision figée par job, contrôle SHA256 et licence permissive.
+- Service unique de traduction locale Transformers : adaptateurs OPUS-MT, M2M100 et MADLAD, modèles sélectionnables, révision figée par job, contrôle SHA256 et licence affichée à titre informatif.
 - Protection des références, nombres et unités, glossaire exact, mémoire des corrections par utilisateur, historique de post-édition et réexport.
 - DOCX et PPTX : extraction et réinjection dans paragraphes/tableaux ; conservation des images embarquées. Styles mixtes d’un paragraphe susceptibles d’être simplifiés.
 - PDF natif et scans/images via OCR Tesseract local sur CPU. Coordonnées et confiance OCR stockées ; alertes sous 85 %.
