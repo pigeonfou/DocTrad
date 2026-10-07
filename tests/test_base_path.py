@@ -28,6 +28,14 @@ def test_prefixed_login_forms_assets_and_redirects(monkeypatch):
             response=client.get('/doctrad/')
             assert response.status_code==200 and 'action="/doctrad/jobs"' in response.text
             assert client.get('/doctrad/glossary').status_code==200
+            page=client.get('/doctrad/admin')
+            assert 'action="/doctrad/admin/models/download"' in page.text
+            token=re.search(r'name="token" value="([^"]+)"', page.text).group(1)
+            from unittest.mock import patch
+            with patch('app.model_download.start_download',return_value='job'):
+                response=client.post('/doctrad/admin/models/download',data={'model_id':'opus-mt-en-fr','token':token,'confirm_network':'yes'})
+                assert response.status_code==303 and response.headers['location']=='/doctrad/admin'
+            assert client.get('/doctrad/admin/models/download/status').status_code==200
             assert client.get('/cableplan/health').status_code==404
     finally:
         monkeypatch.delenv('DOCTRAD_BASE_PATH')
