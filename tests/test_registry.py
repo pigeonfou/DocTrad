@@ -16,12 +16,16 @@ def test_checksum_fails(tmp_path):
     import pytest
     with pytest.raises(ValueError):Registry(tmp_path).choose()
 
-def test_license_restricted(tmp_path):
+def test_license_restricted_is_informational(tmp_path):
     manifest(tmp_path,usage_policy='non-commercial',license='cc-by-nc-4.0')
-    import pytest
-    with pytest.raises(ValueError):Registry(tmp_path).choose()
+    assert Registry(tmp_path).choose()['license']=='cc-by-nc-4.0'
+
+def test_license_missing_is_allowed(tmp_path):
+    manifest(tmp_path,license=None,usage_policy=None)
+    assert Registry(tmp_path).choose()['id']=='opus'
 
 def test_disabled_not_selected(tmp_path):
     manifest(tmp_path,enabled=False)
     import pytest
     with pytest.raises(ValueError):Registry(tmp_path).choose()
+
