@@ -34,7 +34,7 @@ Le moteur continue à utiliser `local_files_only=True` et `trust_remote_code=Fal
 Aucune API de traduction distante n'est utilisée.
 
 La source est limitée à trois dépôts officiels. La révision récupérée est figée au SHA
-exact, la licence attendue est contrôlée, et seuls les poids Safetensors sont acceptés.
+exact, la licence est conservée à titre informatif, et seuls les poids Safetensors sont acceptés.
 Les empreintes LFS SHA-256 de la source sont comparées lorsqu'elles sont disponibles ;
 le manifeste local conserve les empreintes de tous les fichiers. Le dossier est publié
 atomiquement une fois vérifié. Une erreur conserve les poids incomplets pour la reprise.
@@ -64,12 +64,12 @@ dans le sandbox du service web ; l'installation OneForAll utilise son dossier de
 - Modèle existant invalide : restaurer une sauvegarde ou importer une version vérifiée ;
   la commande n'efface pas automatiquement les fichiers.
 - Manque de disque : libérer de l'espace dans le volume des modèles, puis reprendre.
-- Révision sans Safetensors ou licence différente : téléchargement refusé avant les poids.
+- Révision sans Safetensors : téléchargement refusé avant les poids. Une licence différente ou absente ne bloque pas le téléchargement.
 
 ## Validation de cette évolution
 
 Tests locaux avec Hub simulé : publication atomique, reprise/idempotence, verrou,
-contrôle du disque, licence, refus des poids pickle, empreintes, absence de secrets dans
+contrôle du disque, absence de blocage par licence, refus des poids pickle, empreintes, absence de secrets dans
 le processus, authentification admin, CSRF et autorisation réseau. Aucun gros modèle n'a
 été téléchargé dans l'environnement de développement : le téléchargement réel et une
 traduction restent à vérifier sur le serveur après déploiement.
