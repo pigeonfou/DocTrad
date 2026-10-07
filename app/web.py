@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import select, text
-from .config import DATA, SECRET, MAX_UPLOAD, RUNTIME_URL
+from .config import DATA, MODELS, SECRET, MAX_UPLOAD, RUNTIME_URL
 from .db import Session, Job, User, Segment, Correction, Memory, Glossary
 from .auth import csrf, authenticated, verify, rate_limit
 from .registry import Registry
@@ -190,5 +190,25 @@ def admin(request: Request):
         user = authenticated(request, db)
         if not user.admin: raise HTTPException(403)
     from .cli import diagnostic
-    return templates.TemplateResponse(request=request, name="admin.html", context={"system":diagnostic(),"models":Registry().list(),"csrf":request.session["csrf"]})
+    from .model_download import CATALOG, latest_status
+    return templates.TemplateResponse(request=request, name="admin.html", context={"system":diagnostic(),"models":Registry().list(),"csrf":request.session["csrf"],"catalog":CATALOG,"download":latest_status(DATA / "model-downloads", MODELS)})
 
+
+@app.post("/admin/models/download")
+def model_download(request: Request, model_id: str = Form(), token: str = Form(), confirm_network: str = Form("")):
+    csrf(request, token)
+    with Session() as db:
+        if not authenticated(request, db).admin: raise HTTPException(403)
+    if confirm_network != "yes": raise HTTPException(400, "Confirmez le téléchargement initial depuis Hugging Face.")
+    from .model_download import start_download
+    try: start_download(model_id, MODELS, DATA / "model-downloads")
+    except ValueError as exc: raise HTTPException(409, str(exc)) from exc
+    except OSError as exc: raise HTTPException(503, "Téléchargement indisponible : vérifiez les permissions du dossier des modèles.") from exc
+    return RedirectResponse(BASE_PATH + "/admin", status_code=303)
+
+@app.get("/admin/models/download/status")
+def model_download_status(request: Request):
+    with Session() as db:
+        if not authenticated(request, db).admin: raise HTTPException(403)
+    from .model_download import latest_status
+    return latest_status(DATA / "model-downloads", MODELS) or {"status":"idle"}
