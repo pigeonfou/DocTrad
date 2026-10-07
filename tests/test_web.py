@@ -10,7 +10,7 @@ def signin(client,name='alice',admin=False):
     import json,base64
     from app.config import SECRET
     def token():
-        return json.loads(base64.b64decode(TimestampSigner(SECRET).unsign(client.cookies['session'])))['csrf']
+        return json.loads(base64.b64decode(TimestampSigner(SECRET).unsign(client.cookies['doctrad_session'])))['csrf']
     response=client.post('/login',data=dict(username=name,password='very-strong-test-password',token=token()))
     assert response.status_code==200
     return token()
@@ -88,3 +88,4 @@ def test_upload_process_correct_download(client,tmp_path,monkeypatch):
     assert Document(io.BytesIO(output.content)).paragraphs[0].text=='Tension nominale : 12 VDC.'
     with Session() as db:assert db.scalar(select(Correction)).previous=='Tension alimentation : 12 VDC.'
     assert not (DATA/'danger.docx').exists()
+
