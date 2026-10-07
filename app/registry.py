@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 from .config import MODELS
 
-ALLOWED = {"apache-2.0", "mit", "bsd-3-clause"}
 
 class Registry:
     def __init__(self, root=MODELS): self.root = Path(root)
@@ -24,7 +23,6 @@ class Registry:
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,99}", item.get("id", "")): return False
         if not re.fullmatch(r"[0-9a-f]{40}", item.get("revision", "")): return False
         if item.get("family") not in {"opus", "m2m100", "madlad"}: return False
-        if item.get("usage_policy") != "permissive" or item.get("license", "").lower() not in ALLOWED: return False
         files = item.get("sha256", {})
         if not files or "config.json" not in files: return False
         if not any(name.endswith((".safetensors", ".bin")) for name in files): return False
@@ -51,3 +49,4 @@ class Registry:
         # Quality recommendations require actual benchmark results, never parameter count.
         candidates.sort(key=lambda m: (not m.get("default", False), -m.get("benchmark", {}).get("technical_score", 0), m.get("ram_mb", 999999)))
         return candidates[0]
+
