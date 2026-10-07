@@ -7,6 +7,7 @@ from .config import DATA, RUNTIME_URL, RUNTIME_SECRET
 from .db import Session, Job, Segment, Glossary, Memory, now
 from .documents import analyze, exports
 from .quality import protect, restore, check
+from .terminology import terminology
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ def run_job(job_id):
                 job.status = "done"; job.progress = 100; s.commit()
                 return
             terms = {g.source:g.target for g in s.scalars(select(Glossary).where(Glossary.active == True).order_by(Glossary.priority.desc()))}
+            terms = terminology(terms)
             items = analyze(DATA / "uploads" / (job.id + job.suffix), job.suffix)
             texts = [item["text"] for item in items]
             if not texts: raise ValueError("Aucun texte exploitable")
