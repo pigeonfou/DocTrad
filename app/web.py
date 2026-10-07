@@ -23,11 +23,16 @@ async def lifespan(app):
     for directory in ("uploads", "outputs", "temp"): (DATA / directory).mkdir(parents=True, exist_ok=True)
     yield
 
-app = FastAPI(title="DocTrad", docs_url=None, redoc_url=None, lifespan=lifespan)
-app.add_middleware(SessionMiddleware, secret_key=SECRET or "unconfigured", https_only=os.environ.get("COOKIE_SECURE", "true") == "true", same_site="strict", max_age=28800)
+BASE_PATH = os.environ.get("DOCTRAD_BASE_PATH", "").rstrip("/")
+if BASE_PATH and (not BASE_PATH.startswith("/") or any(c not in "/abcdefghijklmnopqrstuvwxyz0123456789_-" for c in BASE_PATH)):
+    raise ValueError("DOCTRAD_BASE_PATH invalide")
+
+app = FastAPI(root_path=BASE_PATH, title="DocTrad", docs_url=None, redoc_url=None, lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=SECRET or "unconfigured", session_cookie="doctrad_session", path=BASE_PATH + "/", https_only=os.environ.get("COOKIE_SECURE", "true") == "true", same_site="strict", max_age=28800)
 root = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=root / "static"), name="static")
 templates = Jinja2Templates(directory=root / "templates")
+templates.env.globals["base_path"] = BASE_PATH
 
 @app.middleware("http")
 async def headers(request, call_next):
@@ -40,7 +45,7 @@ async def headers(request, call_next):
 
 @app.exception_handler(HTTPException)
 async def error(request, exc):
-    if exc.status_code == 401: return RedirectResponse("/login", status_code=303)
+    if exc.status_code == 401: return RedirectResponse(BASE_PATH + "/login", status_code=303)
     return templates.TemplateResponse(request=request, name="error.html", context={"message":exc.detail}, status_code=exc.status_code)
 
 @app.exception_handler(Exception)
@@ -75,12 +80,12 @@ def login_post(request: Request, username: str = Form(), password: str = Form(),
         user = db.scalar(select(User).where(User.username == username))
         if not user or not verify(user.password, password): raise HTTPException(403, "Identifiants invalides")
         request.session.clear(); request.session.update(uid=user.id, csrf=secrets.token_urlsafe(32))
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(BASE_PATH + "/", status_code=303)
 
 @app.post("/logout")
 def logout(request: Request, token: str = Form()):
     csrf(request, token); request.session.clear()
-    return RedirectResponse("/login", status_code=303)
+    return RedirectResponse(BASE_PATH + "/login", status_code=303)
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -114,7 +119,7 @@ async def upload(request: Request, document: UploadFile = File(), model: str = F
             path.unlink(missing_ok=True); raise HTTPException(400, "Document refusé : " + type(exc).__name__) from exc
         except Exception:
             path.unlink(missing_ok=True); raise
-    return RedirectResponse("/jobs/" + job_id, status_code=303)
+    return RedirectResponse(BASE_PATH + "/jobs/" + job_id, status_code=303)
 
 def owned(request, db, job_id):
     user = authenticated(request, db)
@@ -159,7 +164,7 @@ def correct(request: Request, job_id: str, segment_id: int, target: str = Form()
         if not seg.warnings: db.add(Memory(owner_id=job.owner_id, source=seg.source, target=target))
         # Export via queue after correction; a separate state avoids retranslating.
         job.status = "export_queued"
-    return RedirectResponse("/jobs/" + job_id, status_code=303)
+    return RedirectResponse(BASE_PATH + "/jobs/" + job_id, status_code=303)
 
 @app.get("/glossary")
 def glossary(request: Request):
@@ -177,7 +182,7 @@ def glossary_save(request: Request, source: str = Form(), target: str = Form(), 
         entry = db.scalar(select(Glossary).where(Glossary.source == source))
         if entry: entry.target = target
         else: db.add(Glossary(source=source,target=target))
-    return RedirectResponse("/glossary", status_code=303)
+    return RedirectResponse(BASE_PATH + "/glossary", status_code=303)
 
 @app.get("/admin")
 def admin(request: Request):
@@ -186,3 +191,4 @@ def admin(request: Request):
         if not user.admin: raise HTTPException(403)
     from .cli import diagnostic
     return templates.TemplateResponse(request=request, name="admin.html", context={"system":diagnostic(),"models":Registry().list(),"csrf":request.session["csrf"]})
+
