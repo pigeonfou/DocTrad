@@ -33,6 +33,7 @@ DEFAULT_TERMS = {
     "End User Device (EUD) Support": "Terminaux utilisateur (EUD) pris en charge",
     "Chat": "Messagerie instantanée",
     "SCAN ME": "SCANNEZ-MOI",
+    "SD and HD video": "Vidéo SD et HD",
 }
 # Ces appellations ne sont ni francisées ni remplacées par des synonymes.
 PROTECTED_NAMES = (
@@ -43,14 +44,15 @@ PROTECTED_NAMES = (
     "Collins Aerospace", "L3Harris", "Thales Defense & Security",
     "Ultra", "ORION X510", "WinTAK", "ATAK", "MANET", "MELPe",
     "WREN", "SOCOM", "Protobuf", "Android", "Windows", "NSA", "SDR",
+    "When Nothing Else Works",
 )
 
 
 def preserved_name(text):
     """Recognize standalone marks even when OCR inserts spaces in a logo."""
     import re
-    normalized = re.sub(r'\s+', '', text).casefold()
-    return any(normalized == re.sub(r'\s+', '', name).casefold() for name in PROTECTED_NAMES)
+    normalized = re.sub(r'\W+', '', text).casefold()
+    return any(normalized == re.sub(r'\W+', '', name).casefold() for name in PROTECTED_NAMES)
 
 
 def reference_label(text, terms):
@@ -95,4 +97,11 @@ def correct_network_terms(source, target):
         target = re.sub(r'\bradio définie par (?:le )?logiciel\b', 'radio logicielle', target, flags=re.I)
     if re.search(r'\bSDRs?\b', source):
         target = re.sub(r'\bDTS\b', 'SDR', target)
+    if 'Technology Readiness Level' in source:
+        target = re.sub(r'niveau de préparation technologique', 'niveau de maturité technologique', target, flags=re.I)
+    if re.search(r'program of record tactical radios', source, re.I):
+        target = re.sub(r'programmes de radios tactiques record', 'radios tactiques de programmes officiels', target, flags=re.I)
+    if 'simultaneous voice, data, video, and Position Location Information (PLI)' in source:
+        target = re.sub(r'des informations de localisation simultanées de voix, de données, de vidéo et de position \(PLI\)',
+                        'la transmission simultanée de la voix, des données, de la vidéo et des informations de position (PLI)', target, flags=re.I)
     return restore_anchored_numbers(source, target)

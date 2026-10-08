@@ -3,7 +3,7 @@ import re
 import secrets
 from collections import Counter
 
-TECH = re.compile(r"(?<!\w)(?:ISO\s+\d+|[+-]?\d+(?:[.,]\d+)?\s*(?:VDC|VAC|mA|kV|kW|MHz|GHz|Nm|mm|cm|kg|°C|V|A|W|Hz|%)(?!\w)|[A-Z]+[A-Z0-9]*(?:[-][A-Z0-9]+)+|[A-Za-z]+\d+[A-Za-z0-9]*|[A-Z]{2,}|RoHS|REACH)(?!\w)")
+TECH = re.compile(r"(?<!\w)(?:ISO\s+\d+|[+-]?\d+(?:[.,]\d+)?\s*(?:VDC|VAC|mA|kV|kW|MHz|GHz|Nm|mm|cm|kg|°C|V|A|W|Hz|%)(?!\w)|[A-Z]+[A-Z0-9]*(?:[-][A-Z0-9]+)+|[A-Za-z]+\d+[A-Za-z0-9]*|[A-Z]{2,}s?|RoHS|REACH)(?!\w)")
 NUMBERS = re.compile(r"(?<![\w])[+-]?\d+(?:[.,]\d+)?")
 
 def protect(text, glossary=None):
@@ -37,7 +37,11 @@ def check(source, target):
         return Counter(re.sub(r"\s+", "", re.sub(r"(?<=\d),(?=\d)", ".", value)) for value in values)
     if canonical(NUMBERS.findall(source)) != canonical(NUMBERS.findall(target)):
         warnings.append("Nombre ajouté, absent ou modifié")
-    if canonical(TECH.findall(source)) != canonical(TECH.findall(target)):
+    from .terminology import DEFAULT_TERMS
+    exact_heading = DEFAULT_TERMS.get(source.strip()) == target.strip()
+    def references(text):
+        return [value[:-1] if re.fullmatch(r'[A-Z]{2,}s', value) else value for value in TECH.findall(text)]
+    if not exact_heading and canonical(references(source)) != canonical(references(target)):
         warnings.append("Référence ou unité technique modifiée")
     return warnings
 

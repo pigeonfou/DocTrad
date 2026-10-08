@@ -88,3 +88,20 @@ def test_heading_glossary_applies_without_fragmenting_model_input(monkeypatch):
     source = 'Scalability and Spectrum Efficiency: Over 800 nodes.'
     assert engine.translate_contextual(source, terminology()) == 'Évolutivité et efficacité spectrale : Plus de 800 nœuds.'
     assert seen == [source]
+
+
+def test_bulleted_short_labels_use_glossary_without_inference(monkeypatch):
+    engine = TransformersEngine()
+    monkeypatch.setattr(engine, '_translate_prose', lambda _: (_ for _ in ()).throw(AssertionError('Label inference')))
+    assert engine.translate_contextual('» Chat', terminology()) == '» Messagerie instantanée'
+    assert engine.translate_contextual('» SD and HD video', terminology()) == '» Vidéo SD et HD'
+
+
+def test_domain_phrase_repairs_are_source_scoped():
+    from app.terminology import correct_network_terms
+    target = 'niveau de préparation technologique ; huit programmes de radios tactiques record'
+    assert correct_network_terms('Unrelated text.', target) == target
+    fixed = correct_network_terms('Technology Readiness Level and eight program of record tactical radios', target)
+    assert fixed == 'niveau de maturité technologique ; huit radios tactiques de programmes officiels'
+    phrase = 'des informations de localisation simultanées de voix, de données, de vidéo et de position (PLI)'
+    assert correct_network_terms('simultaneous voice, data, video, and Position Location Information (PLI)', phrase) == 'la transmission simultanée de la voix, des données, de la vidéo et des informations de position (PLI)'

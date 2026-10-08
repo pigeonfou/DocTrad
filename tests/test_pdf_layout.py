@@ -133,6 +133,13 @@ def test_logo_lettering_is_not_overwritten_even_with_confident_ocr(tmp_path):
     assert 'Trill isWa re' not in PdfReader(output).pages[0].extract_text()
 
 
+def test_graphic_tagline_keeps_original_ornaments(tmp_path):
+    source = source_pdf(tmp_path); output = tmp_path/'tagline.pdf'
+    export_pdf(source, ["©— Quand rien ne fonctionne —©"], [{'text':'©— When Nothing Else Works —©',
+               'page':1, 'box':[300,1800,1700,1900], 'confidence':.98}], output)
+    assert 'Quand rien' not in PdfReader(output).pages[0].extract_text()
+
+
 def test_real_table_continuations_are_grouped_in_their_cells():
     from app.documents import analyze
     source = Path(__file__).parent/'fixtures/tsm-waveform-reference.pdf'

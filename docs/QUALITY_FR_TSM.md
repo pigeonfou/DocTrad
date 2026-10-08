@@ -46,3 +46,12 @@ vérifiés. Son ajout ne change pas le modèle par défaut : le choix administra
 explicite nécessite authentification, droits administrateur, CSRF et modèle
 installé, vérifié, activé et compatible avec les ressources disponibles.
 Le nombre de paramètres n'est pas considéré comme une preuve de qualité.
+
+Les titres connus du glossaire ne sont plus interprétés comme des références
+techniques modifiées du seul fait de leur traduction. Les acronymes au pluriel
+(SDRs → SDR) gardent leur nombre d'occurrences. Les données chiffrées et les
+appellations commerciales restent contrôlées séparément. Les réparations de
+formulations françaises observées sont limitées aux expressions techniques
+présentes dans leur source anglaise ; elles ne remplacent pas un paragraphe
+entier par une traduction de référence. Le slogan graphique de la marque est
+conservé pour éviter de redessiner des ornements confondus avec des caractères.

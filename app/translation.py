@@ -62,6 +62,9 @@ class TransformersEngine(TranslationEngine):
         terms = glossary or {}
         if text.strip() in terms:
             return terms[text.strip()]
+        bullet = re.match(r'^([•●▪*–—»«-]\s*)(.+)$', text.strip())
+        if bullet and bullet[2].strip() in terms:
+            return bullet[1] + terms[bullet[2].strip()]
         from .terminology import preserved_name, reference_label
         if preserved_name(text.strip()) or reference_label(text, terms):
             return text
