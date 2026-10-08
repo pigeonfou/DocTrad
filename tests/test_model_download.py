@@ -152,3 +152,36 @@ def test_explicit_pickle_revision_never_switches_to_another_revision(tmp_path):
         download.download_model('opus-mt-en-fr', tmp_path/'models', tmp_path/'status.json', revision='a'*40, hub=hub)
     assert [c[2]['revision'] for c in hub.calls if c[0] == 'info'] == ['a'*40]
     assert not any(c[0] == 'file' for c in hub.calls)
+
+
+
+def test_m2m100_uses_pinned_upstream_safetensors(tmp_path):
+    pinned = download.CATALOG['m2m100-418m']['safetensors_revision']
+    class ConvertedHub(Hub):
+        def model_info(self, repo, **kwargs):
+            self.weights = kwargs['revision'] == pinned
+            result = super().model_info(repo, **kwargs)
+            if self.weights: result.sha = pinned
+            return result
+    hub = ConvertedHub(weights=False)
+    with patch.object(download.shutil, 'disk_usage', return_value=SimpleNamespace(free=20*1024**3)):
+        download.download_model('m2m100-418m', tmp_path/'models', tmp_path/'status.json', hub=hub)
+    assert [c[2]['revision'] for c in hub.calls if c[0]=='info'] == ['main', pinned]
+    assert all(c[2]['revision']==pinned and c[1]!='pytorch_model.bin' for c in hub.calls if c[0]=='file')
+
+
+def test_nested_weight_variants_are_not_downloaded(tmp_path):
+    class Variants(Hub):
+        def model_info(self, *args, **kwargs):
+            result = super().model_info(*args, **kwargs)
+            result.siblings.append(SimpleNamespace(rfilename='alternative/model.safetensors', size=100*1024**3))
+            return result
+    hub = Variants()
+    download.download_model('opus-mt-en-fr', tmp_path/'models', tmp_path/'status.json', hub=hub)
+    assert not any(c[0]=='file' and c[1].startswith('alternative/') for c in hub.calls)
+
+
+def test_disk_error_includes_required_and_available_space(tmp_path):
+    with patch.object(download.shutil, 'disk_usage', return_value=SimpleNamespace(free=int(.9*1024**3))):
+        with pytest.raises(ValueError, match='13.0 Go nécessaires, 0.9 Go disponibles'):
+            download.download_model('madlad400-3b', tmp_path/'models', tmp_path/'status.json', hub=Hub())

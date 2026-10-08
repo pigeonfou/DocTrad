@@ -19,8 +19,8 @@ STATUS_LOCK = threading.RLock()
 CATALOG = {
     'opus-mt-en-fr': {'safetensors_revision': 'c96fcd7f38a4c0d1ac9b61e255b47f3f7ff55e5e', 'name': 'OPUS anglais → français', 'repo': 'Helsinki-NLP/opus-mt-en-fr', 'family': 'opus', 'profile': 'light', 'license': 'apache-2.0', 'ram_mb': 1024, 'disk_gb': 1, 'description': 'Modèle léger pour commencer, sur CPU.'},
     'opus-mt-tc-big-en-fr': {'name': 'OPUS Big anglais → français', 'repo': 'Helsinki-NLP/opus-mt-tc-big-en-fr', 'family': 'opus', 'profile': 'balanced', 'license': 'cc-by-4.0', 'ram_mb': 2048, 'disk_gb': 2, 'description': 'Variante anglaise → française plus volumineuse, à comparer sur vos documents ; mémoire indicative 2 Go.'},
-    'm2m100-418m': {'name': 'M2M100 418M', 'repo': 'facebook/m2m100_418M', 'family': 'm2m100', 'profile': 'balanced', 'license': 'mit', 'ram_mb': 4096, 'disk_gb': 3, 'description': 'Modèle multilingue ; prévoir davantage de mémoire.'},
-    'madlad400-3b': {'name': 'MADLAD400 3B', 'repo': 'google/madlad400-3b-mt', 'family': 'madlad', 'profile': 'quality', 'license': 'apache-2.0', 'ram_mb': 16000, 'disk_gb': 8, 'description': 'Modèle volumineux ; vérifier les ressources avant installation.'},
+    'm2m100-418m': {'safetensors_revision': 'ae6407352f7f86e328c0f0678d466fc4246e78b3', 'name': 'M2M100 418M', 'repo': 'facebook/m2m100_418M', 'family': 'm2m100', 'profile': 'balanced', 'license': 'mit', 'ram_mb': 4096, 'disk_gb': 3, 'description': 'Modèle multilingue ; prévoir davantage de mémoire.'},
+    'madlad400-3b': {'name': 'MADLAD400 3B', 'repo': 'google/madlad400-3b-mt', 'family': 'madlad', 'profile': 'quality', 'license': 'apache-2.0', 'ram_mb': 16000, 'disk_gb': 13, 'description': 'Modèle volumineux ; vérifier les ressources avant installation.'},
 }
 
 
@@ -143,7 +143,7 @@ def download_model(model_id, root, status_file, revision=None, hub=None):
     upstream_hashes={}
     for file in info.siblings:
         name=file.rfilename;parts=PurePosixPath(name).parts
-        if name.startswith('/') or '..' in parts or any(p.startswith('.') for p in parts):continue
+        if len(parts) != 1 or name.startswith('/') or '..' in parts or any(p.startswith('.') for p in parts):continue
         if any(fnmatch.fnmatch(name,p) for p in ('*.json','*.safetensors','*.spm','*.model','*.txt','README.md','LICENSE*')):
             selected.append((name,file.size or 0))
             lfs=getattr(file,"lfs",None)
@@ -152,7 +152,10 @@ def download_model(model_id, root, status_file, revision=None, hub=None):
     if not any(n.endswith('.safetensors') for n,_ in selected):raise ValueError('Cette révision ne fournit pas de poids Safetensors ; aucune conversion non vérifiée ne sera exécutée.')
     if not any(n=='config.json' for n,_ in selected):raise ValueError('Configuration du modèle absente')
     total=sum(size for _,size in selected)
-    if shutil.disk_usage(root).free < max(total*1.1 + 256*1024**2, spec['disk_gb']*1024**3):raise ValueError('Espace disque insuffisant pour les poids et la vérification')
+    required = max(int(total*1.1) + 256*1024**2, spec['disk_gb']*1024**3)
+    free = shutil.disk_usage(root).free
+    if free < required:
+        raise ValueError(f'Espace disque insuffisant : {required/1024**3:.1f} Go nécessaires, {free/1024**3:.1f} Go disponibles pour les poids et la vérification.')
     stage=root/'.downloads'/model_id
     stage.mkdir(parents=True,exist_ok=True)
     if not stage.resolve().is_relative_to(root):raise ValueError('Dossier temporaire invalide')
@@ -219,4 +222,5 @@ def main():
     finally:os.close(fd)
 
 if __name__=='__main__':main()
+
 
