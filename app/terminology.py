@@ -17,7 +17,7 @@ DEFAULT_TERMS = {
     "Black Relay": "Relais noir",
     "Power supply": "alimentation électrique",
     "File transfer": "Transfert de fichiers",
-    "Supported Software Defined Radio (SDR) Platforms": "Plateformes de radio logicielle (SDR) prises en charge",
+    "Supported Software Defined Radio (SDR) Platforms": "Plateformes SDR prises en charge",
     "Technical Features": "Caractéristiques techniques",
     "Features": "Caractéristiques",
     "Capability": "Capacités",
@@ -26,6 +26,13 @@ DEFAULT_TERMS = {
     "Modulation": "Modulation",
     "Data": "Données",
     "Voice": "Voix",
+    "Product Specification Sheet": "Fiche de spécifications produit",
+    "THE TRELLISWARE TSM WAVEFORM": "LE TSM WAVEFORM DE TRELLISWARE",
+    "TRELLISWARE'S TSM WAVEFORM IS THE INDUSTRY STANDARD FOR RESILIENT COMMUNICATIONS": "TSM WAVEFORM DE TRELLISWARE : LA RÉFÉRENCE DU SECTEUR POUR LES COMMUNICATIONS RÉSILIENTES",
+    "TECHNICAL FEATURES OF THE": "CARACTÉRISTIQUES TECHNIQUES DU",
+    "End User Device (EUD) Support": "Terminaux utilisateur (EUD) pris en charge",
+    "Chat": "Messagerie instantanée",
+    "SCAN ME": "SCANNEZ-MOI",
 }
 # Ces appellations ne sont ni francisées ni remplacées par des synonymes.
 PROTECTED_NAMES = (
@@ -35,8 +42,41 @@ PROTECTED_NAMES = (
     "Ghost Embedded Module", "Tactical Assault Kit",
     "Collins Aerospace", "L3Harris", "Thales Defense & Security",
     "Ultra", "ORION X510", "WinTAK", "ATAK", "MANET", "MELPe",
-    "WREN", "SOCOM", "Protobuf",
+    "WREN", "SOCOM", "Protobuf", "Android", "Windows", "NSA", "SDR",
 )
+
+
+def preserved_name(text):
+    """Recognize standalone marks even when OCR inserts spaces in a logo."""
+    import re
+    normalized = re.sub(r'\s+', '', text).casefold()
+    return any(normalized == re.sub(r'\s+', '', name).casefold() for name in PROTECTED_NAMES)
+
+
+def reference_label(text, terms):
+    """Product/reference lists contain nothing that needs prose inference."""
+    import re
+    remaining = text
+    found = False
+    for name in sorted(PROTECTED_NAMES, key=len, reverse=True):
+        # Explicit user translations take precedence over mark preservation.
+        if terms.get(name, name) != name:
+            continue
+        remaining, count = re.subn(r'(?<!\w)' + re.escape(name) + r'(?!\w)', '', remaining)
+        found |= bool(count)
+    remaining = re.sub(r'\b[A-Z0-9]+(?:[-/][A-Z0-9]+)+\b|\b[A-Z]{2,}\b', '', remaining)
+    return found and not re.search(r'\w', remaining)
+
+
+def restore_anchored_numbers(source, target):
+    """Restore an omitted value only at a unique, unchanged acronym anchor."""
+    import re
+    for match in re.finditer(r'(\([A-Z]{2,10}\))\s+(\d+(?:[.,]\d+)?)\b', source):
+        anchor, number = match.groups()
+        if source.count(anchor) == target.count(anchor) == 1:
+            pattern = re.escape(anchor) + r'(?!\s*\d)'
+            target = re.sub(pattern, lambda _: anchor + ' ' + number, target)
+    return target
 
 def terminology(user_terms=None):
     terms = dict(DEFAULT_TERMS)
@@ -55,4 +95,4 @@ def correct_network_terms(source, target):
         target = re.sub(r'\bradio définie par (?:le )?logiciel\b', 'radio logicielle', target, flags=re.I)
     if re.search(r'\bSDRs?\b', source):
         target = re.sub(r'\bDTS\b', 'SDR', target)
-    return target
+    return restore_anchored_numbers(source, target)

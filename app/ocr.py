@@ -2,6 +2,8 @@
 CPU fallback; Paddle is opt-in and requires explicitly installed model dirs.
 """
 import csv
+import bisect
+import re
 import os
 import shutil
 import subprocess
@@ -35,6 +37,21 @@ def recognize(image):
     if not shutil.which("tesseract"): raise ValueError("Tesseract local absent")
     result = subprocess.run(["tesseract",str(image),"stdout","-l","eng","--psm","3","tsv"],capture_output=True,text=True,timeout=120,check=True)
     rules, edges = vertical_rules(image, with_edges=True)
+    # Long, nearly continuous strokes distinguish row borders from text ink.
+    from PIL import Image, ImageChops
+    with Image.open(image) as source:
+        grey = source.convert('L')
+    horizontal_edges = ImageChops.difference(grey, ImageChops.offset(grey, 0, 1)).point(lambda value: 255 if value >= 35 else 0)
+    border_rows = []
+    for y in range(1, horizontal_edges.height):
+        pixels = horizontal_edges.crop((0, y, horizontal_edges.width, y+1)).tobytes()
+        if (pixels.count(255) > horizontal_edges.width*.5
+                and max((len(m[0]) for m in re.finditer(rb'\xff(?:\x00{0,3}\xff)*', pixels)), default=0) > horizontal_edges.width*.6):
+            if border_rows and y-border_rows[-1][-1] <= 4:
+                border_rows[-1].append(y)
+            else:
+                border_rows.append([y])
+    horizontal_rules = [round(sum(group)/len(group)) for group in border_rows]
     edge_pixels = edges.load()
     line_rules = {}
     lines = {}
@@ -43,8 +60,7 @@ def recognize(image):
         key = (row['block_num'],row['par_num'],row['line_num'])
         left,top,width,height = [int(row[n]) for n in ('left','top','width','height')]
         if key not in line_rules:
-            middle = top+height//2
-            start, end = max(0,middle-35), min(edges.height,middle+35)
+            start, end = max(0,top-3), min(edges.height,top+height+3)
             # A column boundary must actually extend through this text line.
             # A global x coordinate must never cut footnotes below the table.
             line_rules[key] = [rule for rule in rules if
@@ -65,10 +81,20 @@ def recognize(image):
                 break
             part += 1
         key = (*key, part)
-        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":float(row['conf'])/100,"ocr_group":list(key[:2]),"cell_part":part}
+        # An uncertain bullet must not make all the words in its line unusable.
+        confidence = float(row['conf'])/100 if any(c.isalnum() for c in row['text']) else 1.0
+        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":confidence,"ocr_group":list(key[:2]),"cell_part":part}
         else:
-            line = lines[key];line['text'] += ' '+row['text'];line['confidence']=min(line['confidence'],float(row['conf'])/100)
+            line = lines[key];line['text'] += ' '+row['text'];line['confidence']=min(line['confidence'],confidence)
             line['box']=[min(line['box'][0],box[0]),min(line['box'][1],box[1]),max(line['box'][2],box[2]),max(line['box'][3],box[3])]
+        # Stable physical cells, unlike Tesseract's per-line "part" counter.
+        line = lines[key]
+        a,b,c,d = line['box']
+        column = bisect.bisect_right(active_rules, (a+c)/2)
+        above = [y for y in horizontal_rules if y < b]
+        below = [y for y in horizontal_rules if y > d]
+        if 0 < column < len(active_rules) and above and below:
+            line['table_cell'] = [active_rules[column-1], above[-1], active_rules[column], below[0]]
     return list(lines.values())
 
 
@@ -115,7 +141,15 @@ def paragraphs(lines):
     """
     import re
     result = []
-    for line in lines:
+    # Read one physical cell at a time, including interleaved left/right lines.
+    def reading_order(item):
+        index, line = item
+        box = line.get('box') or [0, index]
+        cell = line.get('table_cell')
+        return (line.get('page') or 0, cell[1] if cell else box[1],
+                cell[0] if cell else 0, box[1], index)
+    ordered = sorted(enumerate(lines), key=reading_order)
+    for _, line in ordered:
         previous = result[-1] if result else None
         box = line.get('box')
         merge = False
@@ -123,9 +157,11 @@ def paragraphs(lines):
             last = previous.get('lines', [previous])[-1]
             old = last['box']
             h, old_h = box[3]-box[1], old[3]-old[1]
+            same_cell = line.get('table_cell') is not None and line.get('table_cell') == previous.get('table_cell')
+            same_paragraph = (line['ocr_group'] == previous.get('ocr_group')
+                              and line.get('cell_part') == previous.get('cell_part'))
             merge = (line.get('page') == previous.get('page')
-                     and line['ocr_group'] == previous.get('ocr_group')
-                     and line.get('cell_part') == previous.get('cell_part')
+                     and (same_cell or (not line.get('table_cell') and not previous.get('table_cell') and same_paragraph))
                      and abs(box[0]-old[0]) <= max(h, old_h)
                      and 0 <= box[1]-old[3] <= max(h, old_h)*1.2
                      and min(h, old_h)/max(h, old_h) >= .7

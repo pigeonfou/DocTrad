@@ -15,6 +15,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from .terminology import preserved_name
 
 
 def export_pdf(original, targets, segments, destination):
@@ -65,6 +66,9 @@ def export_pdf(original, targets, segments, destination):
                     if segment.get('image_size') and list(image.size) != segment['image_size']:
                         raise ValueError('Dimensions OCR différentes du rendu PDF')
                     if target == segment.get('text'):
+                        continue
+                    if preserved_name(segment.get('text', '')):
+                        # A logo is artwork, including lettering misread by OCR.
                         continue
                     x0, y0, x1, y1 = [int(value) for value in box]
                     if not (0 <= x0 < x1 <= image.width and 0 <= y0 < y1 <= image.height):

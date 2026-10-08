@@ -18,6 +18,7 @@ STATUS_LOCK = threading.RLock()
 
 CATALOG = {
     'opus-mt-en-fr': {'safetensors_revision': 'c96fcd7f38a4c0d1ac9b61e255b47f3f7ff55e5e', 'name': 'OPUS anglais → français', 'repo': 'Helsinki-NLP/opus-mt-en-fr', 'family': 'opus', 'profile': 'light', 'license': 'apache-2.0', 'ram_mb': 1024, 'disk_gb': 1, 'description': 'Modèle léger pour commencer, sur CPU.'},
+    'opus-mt-tc-big-en-fr': {'name': 'OPUS Big anglais → français', 'repo': 'Helsinki-NLP/opus-mt-tc-big-en-fr', 'family': 'opus', 'profile': 'balanced', 'license': 'cc-by-4.0', 'ram_mb': 2048, 'disk_gb': 2, 'description': 'Variante anglaise → française plus volumineuse, à comparer sur vos documents ; mémoire indicative 2 Go.'},
     'm2m100-418m': {'name': 'M2M100 418M', 'repo': 'facebook/m2m100_418M', 'family': 'm2m100', 'profile': 'balanced', 'license': 'mit', 'ram_mb': 4096, 'disk_gb': 3, 'description': 'Modèle multilingue ; prévoir davantage de mémoire.'},
     'madlad400-3b': {'name': 'MADLAD400 3B', 'repo': 'google/madlad400-3b-mt', 'family': 'madlad', 'profile': 'quality', 'license': 'apache-2.0', 'ram_mb': 16000, 'disk_gb': 8, 'description': 'Modèle volumineux ; vérifier les ressources avant installation.'},
 }

@@ -25,3 +25,23 @@ def test_columns_headings_bullets_and_paragraphs_remain_separate():
     ]
     for source in cases:
         assert len(paragraphs(source)) == 2
+
+
+def test_interleaved_columns_read_each_physical_cell_before_next_column():
+    left = [line('Supported Software Defined', [10,10,180,30],part=0),
+            line('Radio (SDR) Platforms', [10,35,175,55],part=0)]
+    right = [line('TrellisWare products:', [210,10,440,30],part=1),
+             line('» TW-870 TSM Ghost Radio', [210,35,460,55],part=1)]
+    for item in left: item['table_cell'] = [0,0,190,80]
+    for item in right: item['table_cell'] = [200,0,480,80]
+    grouped = paragraphs([left[0],right[0],left[1],right[1]])
+    assert [g['text'] for g in grouped] == ['Supported Software Defined Radio (SDR) Platforms', 'TrellisWare products:', '» TW-870 TSM Ghost Radio']
+
+
+def test_same_cell_can_continue_across_ocr_paragraph_ids_but_not_row_border():
+    source = [line('Works as a black', [210,10,450,30],group=(1,1)),
+              line('relay for the network.', [210,35,460,55],group=(2,1)),
+              line('New row', [210,70,350,90],group=(2,1))]
+    source[0]['table_cell'] = source[1]['table_cell'] = [200,0,480,60]
+    source[2]['table_cell'] = [200,60,480,100]
+    assert [g['text'] for g in paragraphs(source)] == ['Works as a black relay for the network.', 'New row']

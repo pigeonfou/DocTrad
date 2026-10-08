@@ -62,6 +62,9 @@ class TransformersEngine(TranslationEngine):
         terms = glossary or {}
         if text.strip() in terms:
             return terms[text.strip()]
+        from .terminology import preserved_name, reference_label
+        if preserved_name(text.strip()) or reference_label(text, terms):
+            return text
         if not re.search(r"[^\W\d_]", text):
             return text
         # OPUS is trained on sentences and can omit later sentences in a block.
@@ -76,7 +79,13 @@ class TransformersEngine(TranslationEngine):
             pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present))
             translated = pattern.sub(lambda match: terms[match.group()], translated)
         from .terminology import correct_network_terms
-        return correct_network_terms(text, translated)
+        translated = correct_network_terms(text, translated)
+        # Glossary headings at the start of a colon-separated paragraph keep
+        # their preferred wording without fragmenting the model's source.
+        source_heading, separator, _ = text.partition(':')
+        if separator and source_heading.strip() in terms and ':' in translated:
+            translated = terms[source_heading.strip()] + ' :' + translated.partition(':')[2]
+        return translated
 
     def _translate_prose(self, text):
         if self.model is None: raise ValueError("Modèle absent")

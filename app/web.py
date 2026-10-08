@@ -214,3 +214,19 @@ def model_download_status(request: Request):
     from .model_download import latest_status
     return latest_status(DATA / "model-downloads", MODELS) or {"status":"idle"}
 
+
+@app.post("/admin/models/default")
+def default_model(request: Request, model_id: str = Form(), token: str = Form()):
+    csrf(request, token)
+    with Session() as db:
+        if not authenticated(request, db).admin: raise HTTPException(403)
+    try:
+        selected = Registry().choose(model_id)
+        if selected['id'] != model_id:
+            raise ValueError('Choisissez un modèle installé et vérifié.')
+        from .cli import model_action
+        model_action('set-default', model_id)
+    except (ValueError, SystemExit) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return RedirectResponse(BASE_PATH + '/admin', status_code=303)
+

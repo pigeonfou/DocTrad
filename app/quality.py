@@ -34,7 +34,7 @@ def check(source, target):
     warnings = []
     # French decimal commas represent the same technical value.
     def canonical(values):
-        return Counter(re.sub(r"(?<=\d),(?=\d)", ".", value) for value in values)
+        return Counter(re.sub(r"\s+", "", re.sub(r"(?<=\d),(?=\d)", ".", value)) for value in values)
     if canonical(NUMBERS.findall(source)) != canonical(NUMBERS.findall(target)):
         warnings.append("Nombre ajouté, absent ou modifié")
     if canonical(TECH.findall(source)) != canonical(TECH.findall(target)):

@@ -123,3 +123,23 @@ def test_multiline_paragraph_wraps_and_preserves_artwork(tmp_path):
     assert ' '.join(page.extract_text().split()) == target
     image = page.images[0].image.convert('RGB')
     assert image.getpixel((int(450/612*image.width),int((792-690)/792*image.height))) == (0,76,204)
+
+
+def test_logo_lettering_is_not_overwritten_even_with_confident_ocr(tmp_path):
+    source = source_pdf(tmp_path)
+    output = tmp_path/'logo-protected.pdf'
+    export_pdf(source, ['Trill isWa re'], [{'text':'Trell isWa re', 'page':1,
+               'box':[1465,116,1808,181], 'confidence':.95}], output)
+    assert 'Trill isWa re' not in PdfReader(output).pages[0].extract_text()
+
+
+def test_real_table_continuations_are_grouped_in_their_cells():
+    from app.documents import analyze
+    source = Path(__file__).parent/'fixtures/tsm-waveform-reference.pdf'
+    segments = analyze(source, '.pdf')
+    texts = [s['text'] for s in segments]
+    assert 'Supported Software Defined Radio (SDR) Platforms' in texts
+    assert 'End User Device (EUD) Support' in texts
+    assert any(t.startswith('Supports up to 8 spatial MANET hops') and t.endswith('per hop in Long Range Mode') for t in texts)
+    assert any(t.startswith('TrellisWare radios can be left unattended') and t.endswith('with SOCOM Tactical Communications (STC) Security') for t in texts)
+    assert not any('Supported Software Defined' in t and 'TrellisWare radio products' in t for t in texts)

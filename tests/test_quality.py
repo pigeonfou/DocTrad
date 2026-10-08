@@ -36,3 +36,8 @@ def test_segmentation_keeps_decimal():
 def test_decimal_comma_preserves_technical_value():
     assert not check('1.2 MHz and 41.8 km', '1,2 MHz et 41,8 km')
     assert check('1.2 MHz', '1,3 MHz')
+
+
+def test_unit_spacing_does_not_change_the_technical_value():
+    assert not check('1.2MHz and ISO 9001', '1,2 MHz et ISO 9001')
+    assert check('1.2MHz', '1,2 GHz')

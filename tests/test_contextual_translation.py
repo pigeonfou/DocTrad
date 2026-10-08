@@ -52,3 +52,39 @@ def test_network_repairs_are_scoped_to_english_source(monkeypatch):
     target = engine.translate_contextual('Multiple hops with Software Defined Radio and SDRs.')
     assert target == 'Plusieurs sauts avec la radio logicielle et les SDR.'
     assert 'houblons' in engine.translate_contextual('Harvest the crop.')
+
+
+def test_reference_only_labels_never_translate_product_names(monkeypatch):
+    engine = TransformersEngine()
+    monkeypatch.setattr(engine, '_translate_prose', lambda _: (_ for _ in ()).throw(AssertionError('Reference-only inference')))
+    for source in ('» TW-135 TSM Shadow High Power Radio (HPR)',
+                   '» TW-870 TSM Ghost Radio',
+                   '«Thales Defense & Security - AN/PRC-148C, AN/PRC-148D',
+                   '» Android™ Tactical Assault Kit (ATAK)', 'Trell isWa re'):
+        assert engine.translate_contextual(source, terminology()) == source
+
+
+def test_reference_names_do_not_bypass_real_prose_or_user_glossary(monkeypatch):
+    engine = TransformersEngine(); seen = []
+    monkeypatch.setattr(engine, '_translate_prose', lambda text: seen.append(text) or 'La radio fonctionne.')
+    assert engine.translate_contextual('Ghost Radio operates.', terminology()) == 'La radio fonctionne.'
+    assert seen == ['Ghost Radio operates.']
+    assert engine.translate_contextual('Ghost Radio', terminology({'Ghost Radio':'Nom choisi'})) == 'Nom choisi'
+
+
+def test_missing_number_is_restored_at_unique_acronym_without_guessing(monkeypatch):
+    engine = TransformersEngine()
+    monkeypatch.setattr(engine, '_translate_prose', lambda _: 'Technologie de niveau de maturité (TRL), utilisée mondialement.')
+    target = engine.translate_contextual('Technology Readiness Level (TRL) 9 technology, used worldwide.')
+    assert '(TRL) 9,' in target
+    from app.terminology import restore_anchored_numbers
+    assert restore_anchored_numbers('(TRL) 9 then (TRL) 8', '(TRL) et (TRL)') == '(TRL) et (TRL)'
+    assert restore_anchored_numbers('(TRL) 9 technology', '(TRL) 8 technologie') == '(TRL) 8 technologie'
+
+
+def test_heading_glossary_applies_without_fragmenting_model_input(monkeypatch):
+    engine = TransformersEngine(); seen = []
+    monkeypatch.setattr(engine, '_translate_prose', lambda text: seen.append(text) or 'Scalabilité et efficacité du spectre: Plus de 800 nœuds.')
+    source = 'Scalability and Spectrum Efficiency: Over 800 nodes.'
+    assert engine.translate_contextual(source, terminology()) == 'Évolutivité et efficacité spectrale : Plus de 800 nœuds.'
+    assert seen == [source]

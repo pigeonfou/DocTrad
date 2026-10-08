@@ -26,3 +26,23 @@ modèle entraîné. La fixture PDF raster TSM vérifie les coordonnées, les tab
 et la conservation de l'illustration. Le test de paragraphe vérifie une vraie
 recomposition PDF avec extraction du texte final. La qualité linguistique doit
 encore être évaluée avec le modèle installé et le document complet.
+
+Les tableaux bordés disposent désormais de cellules physiques (traits verticaux
+et horizontaux). Leur lecture groupe les continuations avant de passer à la
+colonne voisine, sans fusionner deux lignes du tableau ni deux puces.
+Les symboles de puce n'abaissent plus la confiance des mots de leur ligne.
+Les marques seules, y compris leurs lettres espacées par l'OCR, conservent
+leur graphisme original ; les listes constituées exclusivement de produits,
+références et acronymes ne passent pas par l'inférence.
+
+Une valeur omise après un acronyme entre parenthèses peut être restaurée à
+ce repère si celui-ci n'apparaît qu'une fois dans la source et la traduction.
+Une valeur déjà présente mais différente reste signalée, sans correction
+automatique ambiguë. Les contrôles acceptent la virgule décimale française
+et les espaces autour des unités.
+
+OPUS Big EN→FR est disponible comme option équilibrée, avec poids Safetensors
+vérifiés. Son ajout ne change pas le modèle par défaut : le choix administratif
+explicite nécessite authentification, droits administrateur, CSRF et modèle
+installé, vérifié, activé et compatible avec les ressources disponibles.
+Le nombre de paramètres n'est pas considéré comme une preuve de qualité.
