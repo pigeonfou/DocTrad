@@ -131,6 +131,9 @@ def test_domain_phrase_repairs_are_source_scoped():
     assert fixed == 'niveau de maturité technologique ; huit radios tactiques de programmes officiels'
     phrase = 'des informations de localisation simultanées de voix, de données, de vidéo et de position (PLI)'
     assert correct_network_terms('simultaneous voice, data, video, and Position Location Information (PLI)', phrase) == 'la transmission simultanée de la voix, des données, de la vidéo et des informations de position (PLI)'
+    prose = "En tant que véritable forme d'onde SDR, elle fonctionne sur plusieurs radios."
+    assert correct_network_terms('Multi-vendor Ecosystem -— As a true SDR waveform, it works on several radios.', prose).startswith('Écosystème multifournisseur — ')
+    assert correct_network_terms('Unrelated text.', prose) == prose
 
 
 def test_both_distance_units_survive_model_conversion_simplification(monkeypatch):

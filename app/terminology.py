@@ -151,6 +151,9 @@ def correct_network_terms(source, target):
         target = re.sub(r'\bradio définie par (?:le )?logiciel\b', 'radio logicielle', target, flags=re.I)
     if re.search(r'\bSDRs?\b', source):
         target = re.sub(r'\bDTS\b', 'SDR', target)
+    if (re.match(r'^Multi-vendor Ecosystem\s*[-–—]+', source)
+            and re.match(r'^En tant que\b', target)):
+        target = 'Écosystème multifournisseur — ' + target
     if 'Technology Readiness Level' in source:
         target = re.sub(r'niveau de préparation technologique', 'niveau de maturité technologique', target, flags=re.I)
     if re.search(r'program of record tactical radios', source, re.I):
