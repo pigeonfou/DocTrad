@@ -31,3 +31,23 @@ if (modelDownload && ['queued','metadata','downloading','verifying'].includes(mo
     } catch (_) { /* Retry status without launching a second download. */ }
   }, 2500);
 }
+
+const activeJobStatuses = ['queued', 'running', 'export_queued', 'exporting'];
+document.querySelectorAll('[data-job-row]').forEach(row => {
+  if (!activeJobStatuses.includes(row.dataset.status)) return;
+  let pending = false;
+  const timer = setInterval(async () => {
+    if (pending) return;
+    pending = true;
+    try {
+      const response = await fetch(`${BASE_PATH}/jobs/${row.dataset.jobRow}/status`, {cache: 'no-store'});
+      if (!response.ok) return;
+      const state = await response.json();
+      row.querySelector('[data-job-status]').textContent = state.status;
+      row.querySelector('[data-job-progress]').textContent = `${state.progress} %`;
+      row.dataset.status = state.status;
+      if (!activeJobStatuses.includes(state.status)) clearInterval(timer);
+    } catch (_) { /* Retry without interrupting the upload form. */ }
+    finally { pending = false; }
+  }, 2500);
+});
