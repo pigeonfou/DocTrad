@@ -74,20 +74,21 @@ def model_action(action, model_id):
     if action == "info": print(json.dumps(item, indent=2)); return
     if action == "benchmark":
         import httpx
-        from .quality import protect, restore, check
+        from .quality import check
+        from .terminology import terminology
+        from .translation_audit import audit_translation
         import resource
         started = time.monotonic(); results = []; technical = 0; peak_rss = None
         for source in CORPUS:
-            protected, mapping = protect(source)
             try:
-                response = httpx.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":item["id"],"revision":item["revision"],"texts":[protected]}, timeout=300, trust_env=False)
+                response = httpx.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":item["id"],"revision":item["revision"],"texts":[source], "contextual":True, "glossary":terminology()}, timeout=300, trust_env=False)
                 if response.status_code != 200: raise SystemExit(f"Runtime indisponible (HTTP {response.status_code}) : {response.text}")
                 result = response.json(); peak_rss = result.get("runtime_peak_rss_kb")
-                target = restore(result["texts"][0], mapping)
-                ok = not check(source, target)
+                target = result["texts"][0]
+                ok = not (check(source, target) + audit_translation(source, target))
             except ValueError: target = "PROTECTED DATA FAILURE"; ok = False
             technical += int(ok); results.append({"source":source,"target":target,"technical_ok":ok})
-        score = {"seconds":time.monotonic()-started,"runtime_peak_rss_kb":peak_rss,"technical_score":technical/len(CORPUS),"quality_score":None,"human_review_required":True,"hardware":platform.platform(),"segments":results}
+        score = {"inference_mode":"contextual", "seconds":time.monotonic()-started,"runtime_peak_rss_kb":peak_rss,"technical_score":technical/len(CORPUS),"quality_score":None,"human_review_required":True,"hardware":platform.platform(),"segments":results}
         with Session.begin() as db: db.add(Benchmark(model_id=item["id"],revision=item["revision"],results=score))
         print(json.dumps(score, indent=2, ensure_ascii=False))
         item["benchmark"] = score
@@ -142,3 +143,4 @@ def main():
         for model in models: model_action("benchmark", model["id"])
 
 if __name__ == "__main__": main()
+
