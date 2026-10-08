@@ -37,6 +37,9 @@ def check(source, target):
         return Counter(re.sub(r"\s+", "", re.sub(r"(?<=\d),(?=\d)", ".", value)) for value in values)
     if canonical(NUMBERS.findall(source)) != canonical(NUMBERS.findall(target)):
         warnings.append("Nombre ajouté, absent ou modifié")
+    comparisons = r'[<>≤≥]\s*\d+(?:[.,]\d+)?'
+    if canonical(re.findall(comparisons, source)) != canonical(re.findall(comparisons, target)):
+        warnings.append("Comparaison chiffrée absente ou modifiée")
     from .terminology import DEFAULT_TERMS
     exact_heading = DEFAULT_TERMS.get(source.strip()) == target.strip()
     def references(text):

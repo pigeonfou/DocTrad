@@ -107,6 +107,21 @@ def test_contact_metadata_and_observed_email_damage_are_preserved(monkeypatch):
     assert correct_network_terms('Android™ Apps integration', 'Applications AndroidTM') == 'Applications Android™'
     assert correct_network_terms('Unrelated text', 'salestrellisware.com') == 'salestrellisware.com'
 
+def test_unique_numeric_comparison_is_retained_without_overriding_conflicts():
+    from app.terminology import correct_network_terms
+    from app.quality import check
+    source = '1 second to join, < 5 seconds to merge'
+    target = '1 seconde pour rejoindre, 5 secondes pour fusionner'
+    fixed = correct_network_terms(source, target)
+    assert '< 5 secondes' in fixed
+    assert not any('Comparaison' in w for w in check(source, fixed))
+    assert any('Comparaison' in w for w in check(source, target))
+    wrong = '1 seconde, > 5 secondes'
+    assert correct_network_terms(source, wrong) == wrong
+    assert any('Comparaison' in w for w in check(source, wrong))
+    repeated = '5 secondes et 5 secondes'
+    assert correct_network_terms(source, repeated) == repeated
+
 
 def test_domain_phrase_repairs_are_source_scoped():
     from app.terminology import correct_network_terms

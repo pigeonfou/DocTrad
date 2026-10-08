@@ -131,6 +131,14 @@ def terminology(user_terms=None):
 def correct_network_terms(source, target):
     """Correct observed ambiguous translations only in their source context."""
     import re
+    for operator, value in re.findall(r'([<>≤≥])\s*(\d+(?:[.,]\d+)?)', source):
+        numeric = r'(?<![\w.,])' + re.escape(value.replace(',', '.')).replace(r'\.', '[.,]') + r'(?![\w.,\d])'
+        source_values, target_values = list(re.finditer(numeric, source)), list(re.finditer(numeric, target))
+        if len(source_values) == len(target_values) == 1:
+            anchor = target_values[0]
+            prefix = target[:anchor.start()].rstrip()
+            if not prefix.endswith(('<', '>', '≤', '≥')):
+                target = target[:anchor.start()] + operator + ' ' + target[anchor.start():]
     for email in re.findall(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', source):
         collapsed = email.replace('@', '')
         if email not in target and target.count(collapsed) == 1:
