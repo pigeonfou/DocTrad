@@ -105,3 +105,23 @@ def test_domain_phrase_repairs_are_source_scoped():
     assert fixed == 'niveau de maturité technologique ; huit radios tactiques de programmes officiels'
     phrase = 'des informations de localisation simultanées de voix, de données, de vidéo et de position (PLI)'
     assert correct_network_terms('simultaneous voice, data, video, and Position Location Information (PLI)', phrase) == 'la transmission simultanée de la voix, des données, de la vidéo et des informations de position (PLI)'
+
+
+def test_both_distance_units_survive_model_conversion_simplification(monkeypatch):
+    engine = TransformersEngine()
+    source = 'Supports up to 8 hops with up to 26 miles (41.8 km) per hop and over 200 miles (321.9 km).'
+    monkeypatch.setattr(engine, '_translate_prose', lambda _: "Prend en charge jusqu'à 8 sauts avec jusqu'à 41,8 km par saut et plus de 321,9 km.")
+    target = engine.translate_contextual(source)
+    assert '26 miles (41,8 km)' in target and '200 miles (321,9 km)' in target
+    from app.quality import check
+    assert not (check(source, target) + audit_translation(source, target))
+
+
+def test_dual_measurement_restoration_refuses_ambiguous_or_changed_anchors():
+    from app.terminology import restore_dual_measurements
+    source = '26 miles (41.8 km)'
+    for target in ('26 km (41,8 km)', '41,8 km et 41,8 km', '42 km'):
+        assert restore_dual_measurements(source, target) == target
+    assert restore_dual_measurements(source + ' then 41.8 km', '41,8 km') == '41,8 km'
+    assert restore_dual_measurements(source, '(41,8 km)') == '26 miles (41,8 km)'
+    assert restore_dual_measurements('4 inches (101.6 mm)', '101,6 mm') == '4 inches (101,6 mm)'

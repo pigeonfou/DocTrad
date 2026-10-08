@@ -55,3 +55,9 @@ formulations françaises observées sont limitées aux expressions techniques
 présentes dans leur source anglaise ; elles ne remplacent pas un paragraphe
 entier par une traduction de référence. Le slogan graphique de la marque est
 conservé pour éviter de redessiner des ornements confondus avec des caractères.
+
+Les doubles mesures (par exemple miles et kilomètres) restent intégrales.
+Lorsqu'un moteur conserve seulement la conversion, la mesure principale est
+restaurée depuis la source uniquement si la valeur et l'unité conservées
+identifient un rapprochement unique. Les valeurs changées, unités changées et
+ancres répétées restent signalées pour vérification.

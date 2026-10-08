@@ -80,6 +80,41 @@ def restore_anchored_numbers(source, target):
             target = re.sub(pattern, lambda _: anchor + ' ' + number, target)
     return target
 
+
+def restore_dual_measurements(source, target):
+    """Retain both source units when a model drops one side of a conversion.
+
+    Only an unchanged, unique secondary measurement anchors restoration.
+    Existing primary numbers, ambiguous anchors and changed units stay for QA.
+    """
+    import re
+    from decimal import Decimal
+    number = r'[+-]?\d+(?:[.,]\d+)?'
+    pairs = {('miles', 'km'), ('mile', 'km'), ('ft', 'm'), ('in', 'mm'),
+             ('inch', 'mm'), ('inches', 'mm'), ('lb', 'kg'), ('lbs', 'kg')}
+    pattern = re.compile(r'(?<!\w)(' + number + r')\s*(miles|mile|ft|inches|inch|in|lbs|lb)\s*\(\s*(' + number + r')\s*(km|mm|kg|m)\s*\)')
+    for match in pattern.finditer(source):
+        primary, unit, secondary, secondary_unit = match.groups()
+        if (unit, secondary_unit) not in pairs:
+            continue
+        # Never duplicate a value already present, including a changed unit.
+        present = {Decimal(value.replace(',', '.')) for value in re.findall(number, target)}
+        if Decimal(primary.replace(',', '.')) in present:
+            continue
+        anchor_number = re.escape(secondary.replace(',', '.')).replace(r'\.', '[.,]')
+        anchor = re.compile(r'(?<![\w.,])' + anchor_number + r'\s*' + secondary_unit + r'(?!\w)')
+        source_anchors, target_anchors = list(anchor.finditer(source)), list(anchor.finditer(target))
+        if len(source_anchors) != 1 or len(target_anchors) != 1:
+            continue
+        retained = target_anchors[0]
+        a, b = retained.span()
+        localized = primary.replace('.', ',') if ',' in retained[0] else primary
+        replacement = localized + ' ' + unit + ' (' + retained[0] + ')'
+        if a and b < len(target) and target[a-1] == '(' and target[b] == ')':
+            a -= 1; b += 1
+        target = target[:a] + replacement + target[b:]
+    return target
+
 def terminology(user_terms=None):
     terms = dict(DEFAULT_TERMS)
     terms.update({name: name for name in PROTECTED_NAMES})
@@ -104,4 +139,4 @@ def correct_network_terms(source, target):
     if 'simultaneous voice, data, video, and Position Location Information (PLI)' in source:
         target = re.sub(r'des informations de localisation simultanées de voix, de données, de vidéo et de position \(PLI\)',
                         'la transmission simultanée de la voix, des données, de la vidéo et des informations de position (PLI)', target, flags=re.I)
-    return restore_anchored_numbers(source, target)
+    return restore_dual_measurements(source, restore_anchored_numbers(source, target))
