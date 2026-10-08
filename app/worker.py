@@ -8,6 +8,7 @@ from .db import Session, Job, Segment, Glossary, Memory, now
 from .documents import analyze, exports
 from .quality import protect, restore, check
 from .terminology import terminology
+from .translation_audit import audit_translation
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def run_job(job_id):
                         response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[protected]})
                         if response.status_code != 200: raise ValueError("Moteur local indisponible ou segment refusé ; consulter le diagnostic")
                         translated = restore(response.json()["texts"][0], mapping)
-                warnings = check(text, translated)
+                warnings = check(text, translated) + audit_translation(text, translated)
                 if items[i]["confidence"] < 0.85: warnings.append("OCR incertain : vérification nécessaire")
                 s.add(Segment(job_id=job.id, position=i, source=text, machine=translated, target=translated, warnings=warnings, metadata_json={k:v for k,v in items[i].items() if k != "text"}))
                 targets.append(translated)
