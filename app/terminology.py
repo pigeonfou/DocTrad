@@ -45,6 +45,8 @@ PROTECTED_NAMES = (
     "Ultra", "ORION X510", "WinTAK", "ATAK", "MANET", "MELPe",
     "WREN", "SOCOM", "Protobuf", "Android", "Windows", "NSA", "SDR",
     "When Nothing Else Works",
+    "National Security Agency", "WREN Security", "WREN Information Security",
+    "SOCOM Tactical Communications", "STC Security",
 )
 
 
@@ -162,3 +164,4 @@ def correct_network_terms(source, target):
         target = re.sub(r'des informations de localisation simultanées de voix, de données, de vidéo et de position \(PLI\)',
                         'la transmission simultanée de la voix, des données, de la vidéo et des informations de position (PLI)', target, flags=re.I)
     return restore_dual_measurements(source, restore_anchored_numbers(source, target))
+

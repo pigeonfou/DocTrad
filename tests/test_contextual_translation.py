@@ -154,3 +154,31 @@ def test_dual_measurement_restoration_refuses_ambiguous_or_changed_anchors():
     assert restore_dual_measurements(source + ' then 41.8 km', '41,8 km') == '41,8 km'
     assert restore_dual_measurements(source, '(41,8 km)') == '26 miles (41,8 km)'
     assert restore_dual_measurements('4 inches (101.6 mm)', '101,6 mm') == '4 inches (101,6 mm)'
+
+
+def test_official_security_names_survive_shorter_inline_glossary(monkeypatch):
+    engine = TransformersEngine()
+    names = ('National Security Agency', 'WREN Security',
+             'WREN Information Security', 'SOCOM Tactical Communications', 'STC Security')
+    for name in names:
+        source = f'This document describes {name} requirements.'
+        monkeypatch.setattr(engine, '_translate_prose', lambda _, name=name: f'Ce document décrit les exigences de {name}.')
+        target = engine.translate_contextual(source, terminology())
+        assert name in target
+        assert not audit_translation(source, target)
+    assert engine.translate_contextual('Security', terminology()) == 'Sécurité'
+
+
+def test_user_glossary_can_override_full_official_name(monkeypatch):
+    engine = TransformersEngine()
+    monkeypatch.setattr(engine, '_translate_prose', lambda _: 'Exigences de National Security Agency.')
+    target = engine.translate_contextual('National Security Agency requirements.', terminology({'National Security Agency': 'Agence nationale de sécurité'}))
+    assert target == 'Exigences de Agence nationale de sécurité.'
+
+
+def test_audit_reports_partial_translation_of_official_security_names():
+    assert 'Désignation absente ou modifiée : National Security Agency' in audit_translation(
+        'National Security Agency requirements.', 'Exigences de National Sécurité Agency.')
+    assert 'Désignation absente ou modifiée : WREN Security' in audit_translation(
+        'TSM-X with WREN Security', 'TSM-X avec WREN Sécurité')
+
