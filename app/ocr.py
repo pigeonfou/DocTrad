@@ -55,9 +55,29 @@ def recognize(image):
     edge_pixels = edges.load()
     line_rules = {}
     lines = {}
-    for row in csv.DictReader(result.stdout.splitlines(),delimiter='\t'):
+    rows = list(csv.DictReader(result.stdout.splitlines(), delimiter='\t'))
+    # Known document headings sometimes begin with a drawing recognized as
+    # punctuation. Keep its artwork outside the heading's text/ink rectangle.
+    from app.terminology import DEFAULT_TERMS
+    heading_groups = {}
+    grouped_words = {}
+    for row in rows:
+        if row.get('text', '').strip() and float(row['conf']) >= 0:
+            key = (row['block_num'], row['par_num'], row['line_num'])
+            grouped_words.setdefault(key, []).append(row)
+    for key, words in grouped_words.items():
+        real_words = [word for word in words if any(c.isalnum() for c in word['text'])]
+        prose = ' '.join(word['text'] for word in real_words)
+        if real_words and any(prose == name or prose.startswith(name + ' ') for name in DEFAULT_TERMS):
+            heading_groups[key] = int(real_words[0]['left'])
+    for row in rows:
         if not row.get('text','').strip() or float(row['conf']) < 0: continue
         key = (row['block_num'],row['par_num'],row['line_num'])
+        if (key in heading_groups and float(row['conf']) < 20
+                and int(row['left']) < heading_groups[key]
+                and not any(c.isalnum() for c in row['text'])
+                and row['text'] not in ('•', '●', '▪', '*', '–', '—', '»', '«', '-')):
+            continue
         left,top,width,height = [int(row[n]) for n in ('left','top','width','height')]
         if key not in line_rules:
             start, end = max(0,top-3), min(edges.height,top+height+3)
