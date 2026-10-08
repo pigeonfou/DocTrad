@@ -30,3 +30,9 @@ def test_changed_technical_data(target): assert check('Voltage: 12 VDC.',target)
 
 def test_segmentation_keeps_decimal():
     assert segment('Torque is 4.5 Nm. Connect J3.',20)==['Torque is 4.5 Nm.','Connect J3.']
+
+
+
+def test_decimal_comma_preserves_technical_value():
+    assert not check('1.2 MHz and 41.8 km', '1,2 MHz et 41,8 km')
+    assert check('1.2 MHz', '1,3 MHz')

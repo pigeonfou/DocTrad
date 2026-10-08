@@ -64,14 +64,19 @@ class TransformersEngine(TranslationEngine):
             return terms[text.strip()]
         if not re.search(r"[^\W\d_]", text):
             return text
-        translated = " ".join(self._translate_prose(chunk) for chunk in segment(text, max_chars=1000))
+        # OPUS is trained on sentences and can omit later sentences in a block.
+        # Preserve paragraph layout while translating every complete sentence.
+        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text.strip())
+        chunks = [chunk for sentence in sentences for chunk in segment(sentence, max_chars=1000)]
+        translated = " ".join(self._translate_prose(chunk) for chunk in chunks)
         # A single pass avoids matching inside replacements or shorter names.
         present = [term for term in sorted(terms, key=len, reverse=True)
                    if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text)]
         if present:
             pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present))
             translated = pattern.sub(lambda match: terms[match.group()], translated)
-        return translated
+        from .terminology import correct_network_terms
+        return correct_network_terms(text, translated)
 
     def _translate_prose(self, text):
         if self.model is None: raise ValueError("Modèle absent")

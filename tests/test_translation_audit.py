@@ -15,3 +15,8 @@ def test_identifier_preservation():
 def test_correct_translation_no_warning():
     assert not audit_translation("Spatial Hops", "Sauts spatiaux")
 
+
+
+def test_descriptive_waveform_and_decimal_comma_are_not_data_loss():
+    assert not audit_translation('The TSM waveform operates at 1.2 MHz.', "La forme d'onde TSM fonctionne à 1,2 MHz.")
+    assert audit_translation('TSM WAVEFORM', "Forme d'onde")

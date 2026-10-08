@@ -32,9 +32,12 @@ def restore(text, mapping):
 
 def check(source, target):
     warnings = []
-    if Counter(NUMBERS.findall(source)) != Counter(NUMBERS.findall(target)):
+    # French decimal commas represent the same technical value.
+    def canonical(values):
+        return Counter(re.sub(r"(?<=\d),(?=\d)", ".", value) for value in values)
+    if canonical(NUMBERS.findall(source)) != canonical(NUMBERS.findall(target)):
         warnings.append("Nombre ajouté, absent ou modifié")
-    if Counter(TECH.findall(source)) != Counter(TECH.findall(target)):
+    if canonical(TECH.findall(source)) != canonical(TECH.findall(target)):
         warnings.append("Référence ou unité technique modifiée")
     return warnings
 
@@ -58,3 +61,4 @@ def segment(text, max_chars=1000):
             else: current = (current + " " + sentence).strip()
         if current: chunks.append(current)
     return chunks
+

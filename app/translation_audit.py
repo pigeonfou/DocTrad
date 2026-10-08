@@ -18,7 +18,7 @@ def audit_translation(source, target):
         if wrong in folded:
             warnings.append("Terminologie suspecte : " + reason)
     for name in PROTECTED_NAMES:
-        if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", source, re.I):
+        if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", source, 0 if name == 'TSM WAVEFORM' else re.I):
             if not re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", target, re.I):
                 warnings.append("Désignation absente ou modifiée : " + name)
     for token in re.findall(r"(?<![\w])(?:AN/PRC-\d+[A-Z]?|TW-\d+|ORION\s+X\d+)(?!\w)", source):
@@ -28,7 +28,8 @@ def audit_translation(source, target):
     for unit in ("miles", "mile", "Mbps", "kbps", "MHz", "GHz", "VDC"):
         pattern = r"(?<!\w)([+-]?\d+(?:[.,]\d+)?)\s*" + re.escape(unit) + r"(?!\w)"
         for value in re.findall(pattern, source):
-            if not re.search(r"(?<!\w)" + re.escape(value) + r"\s*" + re.escape(unit) + r"(?!\w)", target):
+            number = re.escape(value.replace(",", ".")).replace(r"\.", "[.,]")
+            if not re.search(r"(?<!\w)" + number + r"\s*" + re.escape(unit) + r"(?!\w)", target):
                 warnings.append("Valeur ou unité à vérifier : " + value + " " + unit)
     if source.strip() and not target.strip():
         warnings.append("Traduction vide")

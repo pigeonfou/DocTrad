@@ -44,3 +44,15 @@ def terminology(user_terms=None):
     terms.update(user_terms or {})
     return terms
 
+
+
+def correct_network_terms(source, target):
+    """Correct observed ambiguous translations only in their source context."""
+    import re
+    if re.search(r'\bhops?\b', source, re.I):
+        target = re.sub(r'\bhoublon(s?)\b', lambda m: 'saut' + m[1], target, flags=re.I)
+    if re.search(r'\bSoftware Defined Radio\b', source, re.I):
+        target = re.sub(r'\bradio définie par (?:le )?logiciel\b', 'radio logicielle', target, flags=re.I)
+    if re.search(r'\bSDRs?\b', source):
+        target = re.sub(r'\bDTS\b', 'SDR', target)
+    return target

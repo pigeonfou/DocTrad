@@ -32,3 +32,23 @@ def test_inline_glossary_is_one_pass_and_scoped_to_source(monkeypatch):
     engine = TransformersEngine()
     monkeypatch.setattr(engine, '_translate_prose', lambda _: 'Software Defined Radio et Data')
     assert engine.translate_contextual('Software Defined Radio supports transmission.', {'Software Defined Radio': 'radio Data', 'Data':'Données'}) == 'radio Data et Data'
+
+
+def test_every_sentence_in_a_paragraph_is_translated(monkeypatch):
+    engine = TransformersEngine(); seen = []
+    def infer(text):
+        seen.append(text)
+        return {'TrellisWare Technologies, Inc. leads MANET development.':'TrellisWare Technologies, Inc. développe les MANET.', 'It supports 800 nodes.':'Il prend en charge 800 nœuds.', 'TRL 9 supports tactical missions.':'TRL 9 prend en charge les missions tactiques.'}[text]
+    monkeypatch.setattr(engine, '_translate_prose', infer)
+    source = 'TrellisWare Technologies, Inc. leads MANET development. It supports 800 nodes. TRL 9 supports tactical missions.'
+    target = engine.translate_contextual(source)
+    assert seen == ['TrellisWare Technologies, Inc. leads MANET development.', 'It supports 800 nodes.', 'TRL 9 supports tactical missions.']
+    assert '800' in target and 'TRL 9' in target
+
+
+def test_network_repairs_are_scoped_to_english_source(monkeypatch):
+    engine = TransformersEngine()
+    monkeypatch.setattr(engine, '_translate_prose', lambda _: 'Plusieurs houblons avec la radio définie par logiciel et les DTS.')
+    target = engine.translate_contextual('Multiple hops with Software Defined Radio and SDRs.')
+    assert target == 'Plusieurs sauts avec la radio logicielle et les SDR.'
+    assert 'houblons' in engine.translate_contextual('Harvest the crop.')
