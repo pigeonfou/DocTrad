@@ -94,3 +94,32 @@ def test_tsm_reference_document(tmp_path):
     all_zones = export_pdf(source, ['FR : '+item['text'] for item in segments], segments, tmp_path/'all-zones.pdf')
     assert not any('Coordonnées OCR invalides' in warning['reason'] for warning in all_zones['warnings'])
     assert len(PdfReader(tmp_path/'all-zones.pdf').pages) == 2
+
+
+
+def test_multiline_paragraph_wraps_and_preserves_artwork(tmp_path):
+    from app.ocr import paragraphs, scan_pdf
+    source = tmp_path / 'paragraph.pdf'
+    c = canvas.Canvas(str(source), pagesize=(612, 792))
+    c.setFillColorRGB(0, .3, .8)
+    c.rect(400, 640, 100, 100, fill=1, stroke=0)
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont('Helvetica', 12)
+    c.drawString(60, 700, 'Reliable communications across multiple')
+    c.drawString(60, 683, 'hops with steady throughput.')
+    c.save()
+    lines = scan_pdf(source)
+    # Fix only grouping metadata: OCR text, positions and confidence stay real.
+    for item in lines:
+        item['ocr_group'] = [1, 1]
+        item['confidence'] = 1.0  # This test checks layout, not OCR uncertainty.
+    segments = paragraphs(lines)
+    assert len(segments) == 1 and len(segments[0]['lines']) == 2
+    target = 'Communications fiables sur plusieurs sauts avec un débit constant.'
+    destination = tmp_path / 'paragraph-translated.pdf'
+    report = export_pdf(source, [target], segments, destination)
+    assert not report['warnings']
+    page = PdfReader(destination).pages[0]
+    assert ' '.join(page.extract_text().split()) == target
+    image = page.images[0].image.convert('RGB')
+    assert image.getpixel((int(450/612*image.width),int((792-690)/792*image.height))) == (0,76,204)

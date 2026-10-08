@@ -123,6 +123,51 @@ def export_pdf(original, targets, segments, destination):
                             break
                         end = column-2
                     available_width = max(available_width, (end-x0)*sx)
+                    source_lines = segment.get('lines', [])
+                    if source_lines:
+                        # Use the original cell/paragraph width, without extending
+                        # through neighbouring artwork merely to fit more prose.
+                        available_width = (x1-x0)*sx
+                        line_height = max(line['box'][3]-line['box'][1] for line in source_lines)*sy
+                        size = line_height/.95
+                        def wrap(text, font_size):
+                            output, current = [], ''
+                            for word in text.split():
+                                candidate = (current + ' ' + word).strip()
+                                if current and pdfmetrics.stringWidth(candidate, font, font_size) > available_width:
+                                    output.append(current); current = word
+                                else:
+                                    current = candidate
+                            if current: output.append(current)
+                            return output
+                        while size >= 5:
+                            wrapped = wrap(target, size)
+                            ascent, descent = pdfmetrics.getAscentDescent(font, size)
+                            leading = size*1.18
+                            if ((len(wrapped)-1)*leading + ascent-descent <= available_height
+                                and all(pdfmetrics.stringWidth(line, font, size) <= available_width for line in wrapped)):
+                                break
+                            size -= .25
+                        if size < 5:
+                            report['warnings'].append({'segment': index, 'page': page_number,
+                                'reason': 'Paragraphe trop long : zone originale conservée'})
+                            continue
+                        if size < 7:
+                            report['warnings'].append({'segment': index, 'page': page_number,
+                                'reason': 'Police réduite : lisibilité à vérifier', 'font_size': round(size, 2)})
+                        pdf.setFillColorRGB(*(value/255 for value in background))
+                        for line in source_lines:
+                            a,b,c,d = line['box']
+                            pdf.rect(max(0,a-2)*sx, height-min(image.height,d+2)*sy,
+                                     (min(image.width,c+2)-max(0,a-2))*sx,
+                                     (min(image.height,d+2)-max(0,b-2))*sy, stroke=0, fill=1)
+                        pdf.setFillColorRGB(*(value/255 for value in foreground))
+                        pdf.setFont(font, size)
+                        baseline = height-y0*sy-ascent
+                        for line in wrapped:
+                            pdf.drawString(x, baseline, line)
+                            baseline -= leading
+                        continue
                     size = available_height / .95
                     measured = pdfmetrics.stringWidth(target, font, size)
                     if measured > available_width:
@@ -150,3 +195,4 @@ def export_pdf(original, targets, segments, destination):
     finally:
         pending.unlink(missing_ok=True)
     return report
+

@@ -51,6 +51,28 @@ class TransformersEngine(TranslationEngine):
             output.append(leading + self._translate_prose(part.strip()).strip() + trailing)
         return "".join(output)
 
+    def translate_contextual(self, text, glossary=None):
+        """Translate complete source sentences, including their technical context.
+
+        Exact glossary entries bypass inference. Inline replacements apply only
+        to English terms the model actually retained; QA reports lost values.
+        """
+        import re
+        from .quality import segment
+        terms = glossary or {}
+        if text.strip() in terms:
+            return terms[text.strip()]
+        if not re.search(r"[^\W\d_]", text):
+            return text
+        translated = " ".join(self._translate_prose(chunk) for chunk in segment(text, max_chars=1000))
+        # A single pass avoids matching inside replacements or shorter names.
+        present = [term for term in sorted(terms, key=len, reverse=True)
+                   if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text)]
+        if present:
+            pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present))
+            translated = pattern.sub(lambda match: terms[match.group()], translated)
+        return translated
+
     def _translate_prose(self, text):
         if self.model is None: raise ValueError("Modèle absent")
         import torch
@@ -66,7 +88,7 @@ class TransformersEngine(TranslationEngine):
 class Runtime:
     """A single process owns weights; all switches and inference are serialized."""
     def __init__(self): self.engine = TransformersEngine(); self.lock = RLock()
-    def translate(self, manifest, texts):
+    def translate(self, manifest, texts, *, contextual=False, glossary=None):
         with self.lock:
             old = self.engine.manifest
             if not old or (old["id"], old["revision"]) != (manifest["id"], manifest["revision"]):
@@ -76,4 +98,7 @@ class Runtime:
                     self.engine.unload()
                     if old: self.engine.load(old)
                     raise
+            if contextual:
+                return [self.engine.translate_contextual(text, glossary) for text in texts]
             return self.engine.translate_batch(texts)
+
