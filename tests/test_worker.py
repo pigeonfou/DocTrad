@@ -70,3 +70,34 @@ def test_postgres_claim_is_atomic():
     with ThreadPoolExecutor(max_workers=4) as pool:results=list(pool.map(lambda _:reserve(),range(4)))
     assert len(set(results))==4 and None not in results
     assert claim() is None
+
+
+
+def test_worker_sends_context_and_audits_changed_units(monkeypatch):
+    from docx import Document
+    from app import worker
+    source = 'Shadow Radio operates over 26 miles.'
+    target = 'La radio fantôme fonctionne sur 26 kilomètres.'
+    DATA.joinpath('uploads').mkdir(parents=True, exist_ok=True)
+    with Session.begin() as db:
+        user = User(username='context-worker', password='unused'); db.add(user); db.flush()
+        db.add(Job(id='context-job', owner_id=user.id, filename='context.docx', suffix='.docx', model_id='opus', model_version='a'*40))
+    doc = Document(); doc.add_paragraph(source); doc.save(DATA/'uploads/context-job.docx')
+    class Client:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def post(self, url, *, headers, json):
+            assert json['texts'] == [source]
+            assert json['contextual'] is True
+            assert json['glossary']['Shadow Radio'] == 'Shadow Radio'
+            return type('Response', (), {'status_code':200, 'json':lambda self: {'texts':[target]}})()
+    monkeypatch.setattr(worker.httpx, 'Client', Client)
+    assert claim() == 'context-job'
+    run_job('context-job')
+    with Session() as db:
+        assert db.get(Job, 'context-job').status == 'done'
+        segment = db.scalar(select(Segment).where(Segment.job_id == 'context-job'))
+        assert segment.target == target
+        assert any('26 miles' in warning for warning in segment.warnings)
+        assert any('Shadow Radio' in warning for warning in segment.warnings)
