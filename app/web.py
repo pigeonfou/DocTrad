@@ -16,6 +16,7 @@ from .auth import csrf, authenticated, verify, rate_limit
 from .registry import Registry
 from .documents import validate
 from .quality import check
+from .translation_audit import audit_translation
 
 @asynccontextmanager
 async def lifespan(app):
@@ -159,7 +160,7 @@ def correct(request: Request, job_id: str, segment_id: int, target: str = Form()
         seg = db.get(Segment, segment_id)
         if not seg or seg.job_id != job.id: raise HTTPException(404)
         db.add(Correction(segment_id=seg.id, user_id=job.owner_id, previous=seg.target, target=target))
-        seg.target = target; seg.warnings = check(seg.source, target)
+        seg.target = target; seg.warnings = list(dict.fromkeys(check(seg.source, target) + audit_translation(seg.source, target)))
         if seg.metadata_json.get("confidence", 1) < 0.85: seg.warnings.append("OCR incertain : vérification nécessaire")
         if not seg.warnings: db.add(Memory(owner_id=job.owner_id, source=seg.source, target=target))
         # Export via queue after correction; a separate state avoids retranslating.
@@ -212,3 +213,4 @@ def model_download_status(request: Request):
         if not authenticated(request, db).admin: raise HTTPException(403)
     from .model_download import latest_status
     return latest_status(DATA / "model-downloads", MODELS) or {"status":"idle"}
+

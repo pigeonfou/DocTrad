@@ -6,7 +6,9 @@ import httpx
 from .config import DATA, RUNTIME_URL, RUNTIME_SECRET
 from .db import Session, Job, Segment, Glossary, Memory, now
 from .documents import analyze, exports
-from .quality import protect, restore, check
+from .quality import check
+from .terminology import terminology
+from .translation_audit import audit_translation
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ def run_job(job_id):
                 job.status = "done"; job.progress = 100; s.commit()
                 return
             terms = {g.source:g.target for g in s.scalars(select(Glossary).where(Glossary.active == True).order_by(Glossary.priority.desc()))}
+            terms = terminology(terms)
             items = analyze(DATA / "uploads" / (job.id + job.suffix), job.suffix)
             texts = [item["text"] for item in items]
             if not texts: raise ValueError("Aucun texte exploitable")
@@ -48,12 +51,11 @@ def run_job(job_id):
                 memory = s.scalar(select(Memory).where(Memory.owner_id == job.owner_id, Memory.source == text).order_by(Memory.id.desc()).limit(1))
                 if memory: translated = memory.target
                 else:
-                    protected, mapping = protect(text, terms)
                     with httpx.Client(timeout=300, trust_env=False) as client:
-                        response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[protected]})
+                        response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[text], "contextual":True, "glossary":terms})
                         if response.status_code != 200: raise ValueError("Moteur local indisponible ou segment refusé ; consulter le diagnostic")
-                        translated = restore(response.json()["texts"][0], mapping)
-                warnings = check(text, translated)
+                        translated = response.json()["texts"][0]
+                warnings = list(dict.fromkeys(check(text, translated) + audit_translation(text, translated)))
                 if items[i]["confidence"] < 0.85: warnings.append("OCR incertain : vérification nécessaire")
                 s.add(Segment(job_id=job.id, position=i, source=text, machine=translated, target=translated, warnings=warnings, metadata_json={k:v for k,v in items[i].items() if k != "text"}))
                 targets.append(translated)
@@ -89,3 +91,4 @@ def recover_layout_failures():
                 job.error = ''
 
 if __name__ == "__main__": main()
+

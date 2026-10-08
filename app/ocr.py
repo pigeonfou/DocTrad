@@ -65,7 +65,7 @@ def recognize(image):
                 break
             part += 1
         key = (*key, part)
-        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":float(row['conf'])/100}
+        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":float(row['conf'])/100,"ocr_group":list(key[:2]),"cell_part":part}
         else:
             line = lines[key];line['text'] += ' '+row['text'];line['confidence']=min(line['confidence'],float(row['conf'])/100)
             line['box']=[min(line['box'][0],box[0]),min(line['box'][1],box[1]),max(line['box'][2],box[2]),max(line['box'][3],box[3])]
@@ -104,3 +104,42 @@ def scan_pdf(path):
             for line in recognize(prefix.with_suffix('.png')):
                 line['page']=page;line['image_size']=image_size;all_lines.append(line)
     return all_lines
+
+
+
+def paragraphs(lines):
+    """Join aligned consecutive lines in the same detected paragraph/cell.
+
+    Keep individual ink boxes for masking; never paint a large rectangle over
+    artwork between lines. Backends without paragraph IDs stay line-based.
+    """
+    import re
+    result = []
+    for line in lines:
+        previous = result[-1] if result else None
+        box = line.get('box')
+        merge = False
+        if previous and box and line.get('ocr_group') is not None:
+            last = previous.get('lines', [previous])[-1]
+            old = last['box']
+            h, old_h = box[3]-box[1], old[3]-old[1]
+            merge = (line.get('page') == previous.get('page')
+                     and line['ocr_group'] == previous.get('ocr_group')
+                     and line.get('cell_part') == previous.get('cell_part')
+                     and abs(box[0]-old[0]) <= max(h, old_h)
+                     and 0 <= box[1]-old[3] <= max(h, old_h)*1.2
+                     and min(h, old_h)/max(h, old_h) >= .7
+                     and not re.match(r'^[•●▪*–—»«-]\s*|^\d+[.)]\s', line['text'])
+                     and not last['text'].rstrip().endswith(':')
+                     and not re.match(r'^[A-Z][^:]{0,65}:', line['text']))
+        if merge:
+            if 'lines' not in previous:
+                previous['lines'] = [dict(previous)]
+            previous['lines'].append(dict(line))
+            previous['text'] += ' ' + line['text']
+            previous['confidence'] = min(previous['confidence'], line['confidence'])
+            previous['box'] = [min(previous['box'][0], box[0]), previous['box'][1],
+                               max(previous['box'][2], box[2]), box[3]]
+        else:
+            result.append(dict(line))
+    return result

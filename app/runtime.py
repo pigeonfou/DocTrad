@@ -9,6 +9,8 @@ runtime = Runtime()
 class Request(BaseModel):
     model_id: str
     revision: str
+    contextual: bool = False
+    glossary: dict[str, str] = Field(default_factory=dict, max_length=10000)
     texts: list[str] = Field(min_length=1, max_length=32)
 
 @app.get("/health")
@@ -24,7 +26,8 @@ def translate(body: Request, x_runtime_secret: str = Header(default="")):
         if any(len(t) > 5000 for t in body.texts): raise ValueError("Segment trop long")
         import time, resource
         started = time.monotonic()
-        texts = runtime.translate(manifest, body.texts)
+        texts = runtime.translate(manifest, body.texts, contextual=body.contextual, glossary=body.glossary)
         return {"texts": texts, "seconds": time.monotonic() - started, "runtime_peak_rss_kb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}
     except Exception as exc:
         raise HTTPException(503, "Moteur local indisponible : " + type(exc).__name__) from exc
+
