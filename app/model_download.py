@@ -17,7 +17,7 @@ from pathlib import Path, PurePosixPath
 STATUS_LOCK = threading.RLock()
 
 CATALOG = {
-    'opus-mt-en-fr': {'name': 'OPUS anglais → français', 'repo': 'Helsinki-NLP/opus-mt-en-fr', 'family': 'opus', 'profile': 'light', 'license': 'apache-2.0', 'ram_mb': 1024, 'disk_gb': 1, 'description': 'Modèle léger pour commencer, sur CPU.'},
+    'opus-mt-en-fr': {'safetensors_revision': 'c96fcd7f38a4c0d1ac9b61e255b47f3f7ff55e5e', 'name': 'OPUS anglais → français', 'repo': 'Helsinki-NLP/opus-mt-en-fr', 'family': 'opus', 'profile': 'light', 'license': 'apache-2.0', 'ram_mb': 1024, 'disk_gb': 1, 'description': 'Modèle léger pour commencer, sur CPU.'},
     'm2m100-418m': {'name': 'M2M100 418M', 'repo': 'facebook/m2m100_418M', 'family': 'm2m100', 'profile': 'balanced', 'license': 'mit', 'ram_mb': 4096, 'disk_gb': 3, 'description': 'Modèle multilingue ; prévoir davantage de mémoire.'},
     'madlad400-3b': {'name': 'MADLAD400 3B', 'repo': 'google/madlad400-3b-mt', 'family': 'madlad', 'profile': 'quality', 'license': 'apache-2.0', 'ram_mb': 16000, 'disk_gb': 8, 'description': 'Modèle volumineux ; vérifier les ressources avant installation.'},
 }
@@ -127,6 +127,13 @@ def download_model(model_id, root, status_file, revision=None, hub=None):
         import huggingface_hub as hub
     write_status(status_file,status='metadata',message='Vérification de la source')
     info=hub.model_info(spec['repo'],revision=revision or 'main',files_metadata=True,token=False)
+    # Some upstream main branches publish only pickle weights. Select a known,
+    # immutable Safetensors variant in the same repository for a fresh install.
+    # Explicit requests and interrupted downloads never change revision.
+    if (not revision and spec.get('safetensors_revision')
+            and not any(file.rfilename.endswith('.safetensors') for file in info.siblings)):
+        revision = spec['safetensors_revision']
+        info = hub.model_info(spec['repo'], revision=revision, files_metadata=True, token=False)
     commit=info.sha
     if not re.fullmatch('[a-f0-9]{40}',commit or ''):raise ValueError('Révision de la source invalide')
     if revision and commit!=revision:raise ValueError('La révision reçue diffère de la demande')
@@ -211,3 +218,4 @@ def main():
     finally:os.close(fd)
 
 if __name__=='__main__':main()
+

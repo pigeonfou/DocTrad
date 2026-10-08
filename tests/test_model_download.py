@@ -125,3 +125,30 @@ def test_license_does_not_block_download_or_reuse(tmp_path,license_name):
     count=len(hub.calls)
     download.download_model('opus-mt-en-fr',root,status,hub=hub)
     assert len(hub.calls)==count
+
+
+
+def test_pickle_main_uses_pinned_safetensors_variant_without_conversion(tmp_path):
+    pinned = download.CATALOG['opus-mt-en-fr']['safetensors_revision']
+    class ConvertedHub(Hub):
+        def model_info(self, repo, **kwargs):
+            self.weights = kwargs['revision'] == pinned
+            result = super().model_info(repo, **kwargs)
+            if self.weights: result.sha = pinned
+            return result
+    hub = ConvertedHub(weights=False)
+    root = tmp_path/'models'; status = tmp_path/'status.json'
+    download.download_model('opus-mt-en-fr', root, status, hub=hub)
+    manifest = json.loads((root/'opus-mt-en-fr/manifest.json').read_text())
+    assert manifest['revision'] == pinned
+    assert download.verify_existing(root/'opus-mt-en-fr', 'opus-mt-en-fr')
+    assert [c[2]['revision'] for c in hub.calls if c[0] == 'info'] == ['main', pinned]
+    assert all(c[1] != 'pytorch_model.bin' and c[2]['revision'] == pinned for c in hub.calls if c[0] == 'file')
+
+
+def test_explicit_pickle_revision_never_switches_to_another_revision(tmp_path):
+    hub = Hub(weights=False)
+    with pytest.raises(ValueError, match='Safetensors'):
+        download.download_model('opus-mt-en-fr', tmp_path/'models', tmp_path/'status.json', revision='a'*40, hub=hub)
+    assert [c[2]['revision'] for c in hub.calls if c[0] == 'info'] == ['a'*40]
+    assert not any(c[0] == 'file' for c in hub.calls)
