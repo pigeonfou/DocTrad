@@ -13,6 +13,9 @@ BAD_FR = {
 def audit_translation(source, target):
     """Return actionable warnings without silently rewriting technical content."""
     warnings = []
+    for contact in re.findall(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|\b(?:https?://)?[\w-]+(?:\.[\w-]+)*\.(?:com|org|net|fr)(?:/[^\s]*)?', source, re.I):
+        if contact not in target:
+            warnings.append('Coordonnée de contact absente ou modifiée : ' + contact)
     folded = target.casefold()
     for wrong, reason in BAD_FR.items():
         if wrong in folded:

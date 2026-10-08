@@ -58,6 +58,11 @@ def preserved_name(text):
 def reference_label(text, terms):
     """Product/reference lists contain nothing that needs prose inference."""
     import re
+    # Internet/contact identifiers and postal directory entries are metadata.
+    if re.fullmatch(r'\s*(?:\d+\s*\|\s*)?(?:[\w.+-]+@)?[\w-]+(?:\.[\w-]+)+\s*', text):
+        return True
+    if re.match(r'^TrellisWare Technologies, Inc\.\s+\d+\s', text):
+        return True
     remaining = text
     found = False
     for name in sorted(PROTECTED_NAMES, key=len, reverse=True):
@@ -126,6 +131,12 @@ def terminology(user_terms=None):
 def correct_network_terms(source, target):
     """Correct observed ambiguous translations only in their source context."""
     import re
+    for email in re.findall(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', source):
+        collapsed = email.replace('@', '')
+        if email not in target and target.count(collapsed) == 1:
+            target = target.replace(collapsed, email)
+    if 'Android™' in source:
+        target = re.sub(r'\bAndroidTM\b', 'Android™', target)
     if re.search(r'\bhops?\b', source, re.I):
         target = re.sub(r'\bhoublon(s?)\b', lambda m: 'saut' + m[1], target, flags=re.I)
     if re.search(r'\bSoftware Defined Radio\b', source, re.I):

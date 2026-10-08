@@ -96,6 +96,17 @@ def test_bulleted_short_labels_use_glossary_without_inference(monkeypatch):
     assert engine.translate_contextual('» Chat', terminology()) == '» Messagerie instantanée'
     assert engine.translate_contextual('» SD and HD video', terminology()) == '» Vidéo SD et HD'
 
+def test_contact_metadata_and_observed_email_damage_are_preserved(monkeypatch):
+    engine = TransformersEngine()
+    monkeypatch.setattr(engine, '_translate_prose', lambda _: "Pour plus d'informations, envoyez un e-mail à salestrellisware.com")
+    for source in ('TRELLISWARE.COM', '00 | info@trellisware.com',
+                   'TrellisWare Technologies, Inc. 10641 Scripps Summit Court, Suite 100, San Diego, CA 9213'):
+        assert engine.translate_contextual(source, terminology()) == source
+    assert 'sales@trellisware.com' in engine.translate_contextual('For more information, email sales@trellisware.com')
+    from app.terminology import correct_network_terms
+    assert correct_network_terms('Android™ Apps integration', 'Applications AndroidTM') == 'Applications Android™'
+    assert correct_network_terms('Unrelated text', 'salestrellisware.com') == 'salestrellisware.com'
+
 
 def test_domain_phrase_repairs_are_source_scoped():
     from app.terminology import correct_network_terms

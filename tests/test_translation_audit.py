@@ -12,6 +12,11 @@ def test_identifier_preservation():
     assert any("TW-950" in w for w in audit_translation("TW-950 radio", "Radio autre"))
     assert not audit_translation("TW-950 Shadow Radio", "TW-950 Shadow Radio")
 
+def test_contact_corruption_is_reported():
+    assert any('Coordonnée' in w for w in audit_translation('sales@trellisware.com', 'salestrellisware.com'))
+    assert any('Coordonnée' in w for w in audit_translation('TRELLISWARE.COM', 'TRELISWARE.COM'))
+    assert not audit_translation('Contact sales@trellisware.com', 'Contacter sales@trellisware.com')
+
 def test_correct_translation_no_warning():
     assert not audit_translation("Spatial Hops", "Sauts spatiaux")
 
