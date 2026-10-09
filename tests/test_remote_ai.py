@@ -91,6 +91,7 @@ class RemoteTests(unittest.TestCase):
         self.assertTrue(payload["messages"][0]["content"].endswith("Hello"))
         self.assertEqual(payload["chat_template_kwargs"], {"source_lang_code": "en", "target_lang_code": "fr"})
         self.assertEqual(payload["max_tokens"], 1024)
+        self.assertEqual(payload["stop"], ["<|im_start|>", "<|im_end|>"])
         self.assertEqual(payload["temperature"], 0)
 
 class KeyTests(unittest.TestCase):

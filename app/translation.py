@@ -143,6 +143,11 @@ class RemoteEngine(TransformersEngine):
                     raise ValueError("Réponse IA trop volumineuse")
             choice = json.loads(raw)["choices"][0]
             diagnostic["finish_reason"] = choice.get("finish_reason")
+            translated = choice.get("message", {}).get("content")
+            if isinstance(translated, str):
+                import re
+                diagnostic["response_characters"] = len(translated)
+                diagnostic["markers"] = re.findall(r"<\|[^>]*\|>|<(?:end_of_turn|eos)>", translated)
             if choice.get("finish_reason") != "stop":
                 code = "incomplete_response"
                 raise ValueError("Traduction IA incomplète")

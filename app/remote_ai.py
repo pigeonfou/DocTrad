@@ -14,6 +14,9 @@ def translation_payload(model, text):
     """Text chat format verified with the private Unsloth GGUF endpoint."""
     payload = dict(model=model, temperature=0, max_tokens=1024, stream=False)
     if "translategemma" in model.lower():
+        # Stop before GGUF emits another conversation turn instead of
+        # consuming the output budget on generated dialogue.
+        payload["stop"] = ["<|im_start|>", "<|im_end|>"]
         payload["messages"] = [{"role": "user", "content":
             "You are a professional English (en) to French (fr) translator. "
             "Produce only the French translation, without explanations or commentary. "
