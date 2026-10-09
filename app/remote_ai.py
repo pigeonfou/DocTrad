@@ -86,10 +86,10 @@ def save_api_key(key):
 
 
 def clean_translation(content):
-    """Strip only known trailing control tokens; reject embedded controls."""
+    """Preserve text on both sides of file separators; reject other embedded controls."""
     import re
     if not isinstance(content, str): raise ValueError("Traduction IA invalide")
-    result = content.strip()
+    result = content.replace("<|file_separator|>", "\n").strip()
     tokens = ("<|file_separator|>", "<|im_end|>", "<end_of_turn>", "<eos>")
     while any(result.endswith(token) for token in tokens):
         for token in tokens:

@@ -105,6 +105,10 @@ class KeyTests(unittest.TestCase):
 
 
 class ControlTokenTests(unittest.TestCase):
+    def test_internal_file_separator_preserves_both_passages(self):
+        self.assertEqual(remote_ai.clean_translation("Première phrase.<|file_separator|>Deuxième phrase."),
+                         "Première phrase.\nDeuxième phrase.")
+        self.assertEqual(remote_ai.clean_translation("Avant<|file_separator|>Après<|im_end|>"), "Avant\nAprès")
     def test_trailing_tokens_removed(self):
         self.assertEqual(remote_ai.clean_translation("Bonjour.\n<|file_separator|>"), "Bonjour.")
         self.assertEqual(remote_ai.clean_translation("Bonjour. <|im_end|>"), "Bonjour.")
