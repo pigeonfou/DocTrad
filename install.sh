@@ -41,6 +41,8 @@ install -d -m 750 -o root -g docutranslate /opt/docutranslate/releases
 [[ ! -e $RELEASE ]] || { echo "Release exists" >&2; exit 1; }
 mkdir "$RELEASE"
 tar -C "$ROOT" --exclude=.git --exclude=.venv --exclude=.env --exclude=data --exclude=models --exclude=offline -cf - . | tar -C "$RELEASE" -xf -
+install -d -m 700 /var/tmp/docutranslate-install
+export TMPDIR=/var/tmp/docutranslate-install
 python3 -m venv "$RELEASE/.venv"
 if [[ ${1:-} == --offline ]]; then
   "$RELEASE/.venv/bin/pip" install --no-index --find-links="$BUNDLE/wheels" -r "$RELEASE/requirements.lock"
