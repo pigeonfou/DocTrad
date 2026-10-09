@@ -93,7 +93,7 @@ def clean_translation(content):
     # Observed GGUF artifact: a dangling assistant header, with no body.
     # Do not remove a header followed by generated conversation text.
     result = re.sub(r"\s*<\|im_start\|>assistant\|>\s*$", "", result).rstrip()
-    tokens = ("<|file_separator|>", "<|im_end|>", "<end_of_turn>", "<eos>")
+    tokens = ("<|file_separator|>", "<|im_end|>", "<end_of_turn>", "<eos>", "<|im_start|>")
     while any(result.endswith(token) for token in tokens):
         for token in tokens:
             if result.endswith(token): result = result[:-len(token)].rstrip()
