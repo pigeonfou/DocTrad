@@ -6,7 +6,7 @@ Application web native destinée à Ubuntu Server 24.04 amd64, anglais → fran�
 
 - FastAPI, comptes locaux Argon2id, sessions HTTPS, CSRF, séparation des documents par utilisateur.
 - File PostgreSQL avec réservation transactionnelle `FOR UPDATE SKIP LOCKED`. Un worker par défaut ; Redis n’est pas nécessaire.
-- Service unique de traduction locale Transformers : adaptateurs OPUS-MT, M2M100 et MADLAD, modèles sélectionnables, révision figée par job, contrôle SHA256 et licence permissive.
+- Service unique de traduction locale Transformers : adaptateurs OPUS-MT, M2M100 et MADLAD, modèles sélectionnables, révision figée par job, contrôle SHA256 et licence affichée à titre informatif.
 - Protection des références, nombres et unités, glossaire exact, mémoire des corrections par utilisateur, historique de post-édition et réexport.
 - DOCX et PPTX : extraction et réinjection dans paragraphes/tableaux ; conservation des images embarquées. Styles mixtes d’un paragraphe susceptibles d’être simplifiés.
 - PDF natif et scans/images via OCR Tesseract local sur CPU. Coordonnées et confiance OCR stockées ; alertes sous 85 %.
@@ -46,3 +46,18 @@ Pour installer sur un serveur dédié, lire [INSTALL_UBUNTU_24_04.md](docs/INSTA
 ## Déploiements depuis GitHub et domaine Cloudflare
 
 [Procédure Ubuntu dédiée complète](docs/GITHUB_CLOUDFLARE_SETUP.md) : dépôt privé, runner nommé `doctrad-ubuntu`, label `doctrad-deploy`, wrapper sudo contrôlé et Cloudflare Tunnel sur Nginx local. Le workflow `DocTrad deploy` attend le succès des tests sur `main`. Aucun déploiement réel n'est possible avant la configuration de votre serveur.
+
+
+## Installation des modèles depuis l'interface
+
+Un administrateur peut maintenant ouvrir **Système & modèles**, sélectionner un modèle
+et lancer son téléchargement initial avec suivi d'avancement. Commencer par OPUS anglais
+→ français. La traduction reste locale et hors ligne après installation.
+Voir [la procédure et le dépannage](docs/modeles-telechargement.md).
+
+## Modes de déploiement
+
+- Autonome sur serveur dédié : [Ubuntu 24/26](docs/INSTALL_UBUNTU_24_04.md), [GitHub et Cloudflare](docs/GITHUB_CLOUDFLARE_SETUP.md), [mise à jour](docs/UPDATE.md).
+- Instance gérée et isolée : [OneForAll](docs/ONEFORALL.md), branche `main`.
+
+Ne pas exécuter les scripts autonomes sur une instance OneForAll.

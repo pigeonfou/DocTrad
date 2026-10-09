@@ -1,1 +1,21 @@
-{% extends "base.html" %}{% block content %}<h1>Système & modèles IA</h1><section class="card"><h2>Diagnostic</h2><dl>{% for k,v in system.items() %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl></section><section class="card"><h2>Modèles présents</h2><table><tr><th>Modèle</th><th>Révision</th><th>Licence</th><th>Profil</th><th>État</th></tr>{% for m in models %}<tr><td>{{ m.name }}</td><td>{{ m.revision[:8] }}</td><td>{{ m.license }}</td><td>{{ m.profile }}</td><td>{{ m.status }}</td></tr>{% else %}<tr><td colspan="5">Aucun modèle installé. Préparez les poids sur une machine connectée puis transférez-les sur ce serveur.</td></tr>{% endfor %}</table></section>{% endblock %}
+{% extends "base.html" %}{% block content %}
+<h1>Système & modèles IA</h1>
+<section class="card"><h2>Installer un modèle de traduction</h2>
+<p>Choisissez un modèle local. Le téléchargement initial contacte Hugging Face pour récupérer les poids publics ; vos documents ne sont pas envoyés. Après installation, la traduction reste hors ligne.</p>
+<form action="{{ base_path }}/admin/models/download" method="post">
+<input type="hidden" name="token" value="{{ csrf }}">
+<label>Modèle<select name="model_id">{% for id,m in catalog.items() %}<option value="{{ id }}">{{ m.name }} · mémoire indicative {{ (m.ram_mb / 1024)|round(1) }} Go{% if id == 'opus-mt-en-fr' %} · conseillé pour commencer{% endif %}</option>{% endfor %}</select></label>
+<p class="muted">OPUS léger : environ 1 Go de disque à prévoir ; OPUS Big : 2 Go ; M2M100 : 3 Go ; MADLAD : 8 Go. Ces marges ne sont pas les tailles exactes des téléchargements. Le modèle léger suffit pour commencer les traductions anglais → français.</p>
+<label class="check"><input type="checkbox" name="confirm_network" value="yes" required>J’autorise le téléchargement initial des poids publics depuis Internet.</label>
+<button {% if download and download.status in ['queued','metadata','downloading','verifying'] %}disabled{% endif %}>Télécharger et installer le modèle</button>
+</form>
+{% if download %}<div class="download-state" data-model-download="{{ download.status }}">
+<h3>{{ download.name|default(download.model_id) }}</h3><p id="model-download-message" role="status">{{ download.message }}</p>
+<progress id="model-download-progress" value="{{ download.completed_bytes|default(0) }}" max="{{ download.total_bytes|default(1) or 1 }}"></progress>
+<p class="muted" id="model-download-bytes">{{ ((download.completed_bytes|default(0))/1024/1024)|round(1) }} / {{ ((download.total_bytes|default(0))/1024/1024)|round(1) }} Mo</p>
+{% if download.status == 'failed' %}<p class="warning">Relancez le téléchargement pour reprendre les fichiers déjà récupérés. Une installation existante n’est jamais écrasée.</p>{% endif %}</div>{% endif %}
+</section>
+<section class="card"><h2>Modèles présents</h2><table><tr><th>Modèle</th><th>Révision</th><th>Licence</th><th>Profil</th><th>État</th><th>Choix automatique</th></tr>{% for m in models %}<tr><td>{{ m.name }}</td><td>{{ m.revision[:8] }}</td><td>{{ m.license }}</td><td>{{ m.profile }}</td><td>{{ m.status }}</td><td>{% if m.default %}Par défaut{% elif m.status == 'ready' and m.enabled|default(true) %}<form action="{{ base_path }}/admin/models/default" method="post"><input type="hidden" name="token" value="{{ csrf }}"><input type="hidden" name="model_id" value="{{ m.id }}"><button class="secondary">Utiliser par défaut</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">Aucun modèle installé. Utilisez le téléchargement ci-dessus ou importez des modèles préparés sur une autre machine.</td></tr>{% endfor %}</table></section>
+<section class="card"><h2>Diagnostic</h2><dl>{% for k,v in system.items() %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl></section>
+{% endblock %}
+

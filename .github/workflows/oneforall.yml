@@ -1,0 +1,19 @@
+name: OneForAll integration checks
+on:
+  push:
+    branches: [main, OneForAll]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check native integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -c 'import json; d=json.load(open("packaging/oneforall.json")); assert d["version"]==1 and d["id"]=="doctrad"'
+          python3 -m compileall -q app tests
+          python3 -m unittest discover -s tests -p test_oneforall_config.py -v

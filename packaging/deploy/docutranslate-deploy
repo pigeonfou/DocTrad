@@ -54,9 +54,11 @@ install -d -m 750 -o docutranslate -g docutranslate "$RELEASE"
 git --git-dir="$REPO" archive "$SHA" | tar --no-same-owner -x -C "$RELEASE"
 chown -R docutranslate:docutranslate "$RELEASE"
 # Package build/install executes as the service account, never as root.
+TEMP_DIR=/var/tmp/docutranslate-install
+install -d -m 700 -o docutranslate -g docutranslate "$TEMP_DIR"
 runuser -u docutranslate -- python3 -m venv "$RELEASE/.venv"
-runuser -u docutranslate -- "$RELEASE/.venv/bin/pip" install --disable-pip-version-check -r "$RELEASE/requirements.lock"
-runuser -u docutranslate -- "$RELEASE/.venv/bin/pip" install --no-deps --no-build-isolation "$RELEASE"
+runuser -u docutranslate -- env TMPDIR="$TEMP_DIR" "$RELEASE/.venv/bin/pip" install --disable-pip-version-check -r "$RELEASE/requirements.lock"
+runuser -u docutranslate -- env TMPDIR="$TEMP_DIR" "$RELEASE/.venv/bin/pip" install --no-deps --no-build-isolation "$RELEASE"
 runuser -u docutranslate -- "$RELEASE/.venv/bin/pip" check
 runuser -u docutranslate -- "$RELEASE/.venv/bin/python" -m compileall -q "$RELEASE/app"
 chmod -R g+rX,o-rwx "$RELEASE"
@@ -109,3 +111,4 @@ printf '%s\n' "$SHA" > "$STATE/current-commit"
 printf '%s\n' "$BACKUP" > "$STATE/last-backup"
 STOPPED=0
 printf '\nDEPLOYED %s\nBACKUP %s\n' "$SHA" "$BACKUP"
+

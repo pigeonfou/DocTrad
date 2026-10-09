@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "id": "doctrad",
+  "integration": "native-isolated",
+  "frontend": "nginx",
+  "hostname": "doctrad.pigeonfou.com"
+}

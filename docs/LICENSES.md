@@ -1,6 +1,6 @@
 # Licences — vérification du 5 octobre 2026
 
-Les licences des candidats ont été consultées sur leurs fiches officielles. Elles doivent aussi être vérifiées pour la **révision exacte transférée** ; `prepare-model.py` refuse une licence différente de celle attendue. Conserver les notices originales dans chaque bundle. Les droits sur les données d’entraînement et l’adéquation à votre usage ne peuvent pas être déduits du seul nom d’une licence.
+Les licences des candidats ont été consultées sur leurs fiches officielles. Le téléchargement, l’import et la sélection ne sont pas bloqués par la licence. La valeur annoncée par la révision est conservée à titre informatif, y compris lorsqu’elle est absente ou différente du catalogue. Conserver les notices originales dans chaque bundle. Les droits sur les données d’entraînement et l’adéquation à votre usage ne peuvent pas être déduits du seul nom d’une licence.
 
 | Candidat | Source officielle | Licence publiée | Usage/décision |
 |---|---|---|---|
@@ -18,3 +18,4 @@ FastAPI, SQLAlchemy, Jinja2, PyTorch, Transformers, bibliothèques Office/PDF et
 Docling/PaddleOCR ne sont pas installés dans le parcours validé. Leurs versions et licences détaillées restent à figer avec leurs modèles. Aucune autorisation de redistribution de ces modèles n’est supposée.
 
 La licence de distribution du code propre de ce dépôt n’a pas été attribuée : elle reste à définir par son propriétaire avant une diffusion à des tiers. Le dépôt public ne signifie pas automatiquement licence permissive.
+

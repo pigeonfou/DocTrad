@@ -29,3 +29,18 @@ def test_real_scanned_pdf(annotated,tmp_path):
     texts=extract(path,'.pdf');assert texts
     exports(path,'.pdf',['Tension alimentation : 12 VDC.']*len(texts),tmp_path/'out')
     assert (tmp_path/'out/translation.docx').is_file()
+
+@pytest.mark.skipif(not shutil.which('pdftoppm') or not shutil.which('tesseract'),reason='OCR prerequisites missing')
+def test_reference_heading_does_not_include_graphic_ornament(tmp_path):
+    import subprocess
+    from pathlib import Path
+    source = Path(__file__).parent/'fixtures/tsm-waveform-reference.pdf'
+    prefix = tmp_path/'reference-heading'
+    subprocess.run(['pdftoppm', '-f', '1', '-l', '1', '-singlefile',
+                    '-scale-to', '2500', '-png', str(source), str(prefix)], check=True)
+    lines = recognize(prefix.with_suffix('.png'))
+    heading = next(line for line in lines if 'Product Specification Sheet' in line['text'])
+    assert heading['text'] == 'Product Specification Sheet'
+    # The text begins after the ornament, preserving its bitmap.
+    assert heading['box'][0] > 80
+

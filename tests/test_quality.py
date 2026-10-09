@@ -30,3 +30,26 @@ def test_changed_technical_data(target): assert check('Voltage: 12 VDC.',target)
 
 def test_segmentation_keeps_decimal():
     assert segment('Torque is 4.5 Nm. Connect J3.',20)==['Torque is 4.5 Nm.','Connect J3.']
+
+
+
+def test_decimal_comma_preserves_technical_value():
+    assert not check('1.2 MHz and 41.8 km', '1,2 MHz et 41,8 km')
+    assert check('1.2 MHz', '1,3 MHz')
+
+
+def test_unit_spacing_does_not_change_the_technical_value():
+    assert not check('1.2MHz and ISO 9001', '1,2 MHz et ISO 9001')
+    assert check('1.2MHz', '1,2 GHz')
+
+
+def test_plural_acronyms_keep_their_reference():
+    assert not check('Several SDRs and a SDR', 'Plusieurs SDR et un SDR')
+    assert check('Several SDRs', 'Plusieurs DTS')
+
+
+def test_known_uppercase_heading_translation_is_not_a_changed_reference():
+    from app.terminology import terminology
+    for source in ('SCAN ME', 'TECHNICAL FEATURES OF THE', 'THE TRELLISWARE TSM WAVEFORM'):
+        assert not check(source, terminology()[source])
+    assert check('12 VDC', '12 VAC')

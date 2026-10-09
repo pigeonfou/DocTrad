@@ -125,6 +125,7 @@ def analyze(path, suffix):
         if reader.is_encrypted: raise ValueError("PDF chiffré non supporté")
         if len(reader.pages) > 500: raise ValueError("PDF limité à 500 pages")
         # Both native and scanned PDFs need page coordinates for visual export.
-        from .ocr import scan_pdf
-        return scan_pdf(path)
+        from .ocr import scan_pdf, paragraphs
+        return paragraphs(scan_pdf(path))
     return [{"text":text,"confidence":1.0,"box":None,"page":None} for text in extract(path,suffix)]
+

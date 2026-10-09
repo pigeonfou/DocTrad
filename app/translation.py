@@ -51,6 +51,45 @@ class TransformersEngine(TranslationEngine):
             output.append(leading + self._translate_prose(part.strip()).strip() + trailing)
         return "".join(output)
 
+    def translate_contextual(self, text, glossary=None):
+        """Translate complete source sentences, including their technical context.
+
+        Exact glossary entries bypass inference. Inline replacements apply only
+        to English terms the model actually retained; QA reports lost values.
+        """
+        import re
+        from .quality import segment
+        terms = glossary or {}
+        if text.strip() in terms:
+            return terms[text.strip()]
+        bullet = re.match(r'^([•●▪*–—»«-]\s*)(.+)$', text.strip())
+        if bullet and bullet[2].strip() in terms:
+            return bullet[1] + terms[bullet[2].strip()]
+        from .terminology import preserved_name, reference_label
+        if preserved_name(text.strip()) or reference_label(text, terms):
+            return text
+        if not re.search(r"[^\W\d_]", text):
+            return text
+        # OPUS is trained on sentences and can omit later sentences in a block.
+        # Preserve paragraph layout while translating every complete sentence.
+        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text.strip())
+        chunks = [chunk for sentence in sentences for chunk in segment(sentence, max_chars=1000)]
+        translated = " ".join(self._translate_prose(chunk) for chunk in chunks)
+        # A single pass avoids matching inside replacements or shorter names.
+        present = [term for term in sorted(terms, key=len, reverse=True)
+                   if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text)]
+        if present:
+            pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present))
+            translated = pattern.sub(lambda match: terms[match.group()], translated)
+        from .terminology import correct_network_terms
+        translated = correct_network_terms(text, translated)
+        # Glossary headings at the start of a colon-separated paragraph keep
+        # their preferred wording without fragmenting the model's source.
+        source_heading, separator, _ = text.partition(':')
+        if separator and source_heading.strip() in terms and ':' in translated:
+            translated = terms[source_heading.strip()] + ' :' + translated.partition(':')[2]
+        return translated
+
     def _translate_prose(self, text):
         if self.model is None: raise ValueError("Modèle absent")
         import torch
@@ -66,7 +105,7 @@ class TransformersEngine(TranslationEngine):
 class Runtime:
     """A single process owns weights; all switches and inference are serialized."""
     def __init__(self): self.engine = TransformersEngine(); self.lock = RLock()
-    def translate(self, manifest, texts):
+    def translate(self, manifest, texts, *, contextual=False, glossary=None):
         with self.lock:
             old = self.engine.manifest
             if not old or (old["id"], old["revision"]) != (manifest["id"], manifest["revision"]):
@@ -76,4 +115,7 @@ class Runtime:
                     self.engine.unload()
                     if old: self.engine.load(old)
                     raise
+            if contextual:
+                return [self.engine.translate_contextual(text, glossary) for text in texts]
             return self.engine.translate_batch(texts)
+

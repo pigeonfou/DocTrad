@@ -94,3 +94,59 @@ def test_tsm_reference_document(tmp_path):
     all_zones = export_pdf(source, ['FR : '+item['text'] for item in segments], segments, tmp_path/'all-zones.pdf')
     assert not any('Coordonnées OCR invalides' in warning['reason'] for warning in all_zones['warnings'])
     assert len(PdfReader(tmp_path/'all-zones.pdf').pages) == 2
+
+
+
+def test_multiline_paragraph_wraps_and_preserves_artwork(tmp_path):
+    from app.ocr import paragraphs, scan_pdf
+    source = tmp_path / 'paragraph.pdf'
+    c = canvas.Canvas(str(source), pagesize=(612, 792))
+    c.setFillColorRGB(0, .3, .8)
+    c.rect(400, 640, 100, 100, fill=1, stroke=0)
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont('Helvetica', 12)
+    c.drawString(60, 700, 'Reliable communications across multiple')
+    c.drawString(60, 683, 'hops with steady throughput.')
+    c.save()
+    lines = scan_pdf(source)
+    # Fix only grouping metadata: OCR text, positions and confidence stay real.
+    for item in lines:
+        item['ocr_group'] = [1, 1]
+        item['confidence'] = 1.0  # This test checks layout, not OCR uncertainty.
+    segments = paragraphs(lines)
+    assert len(segments) == 1 and len(segments[0]['lines']) == 2
+    target = 'Communications fiables sur plusieurs sauts avec un débit constant.'
+    destination = tmp_path / 'paragraph-translated.pdf'
+    report = export_pdf(source, [target], segments, destination)
+    assert not report['warnings']
+    page = PdfReader(destination).pages[0]
+    assert ' '.join(page.extract_text().split()) == target
+    image = page.images[0].image.convert('RGB')
+    assert image.getpixel((int(450/612*image.width),int((792-690)/792*image.height))) == (0,76,204)
+
+
+def test_logo_lettering_is_not_overwritten_even_with_confident_ocr(tmp_path):
+    source = source_pdf(tmp_path)
+    output = tmp_path/'logo-protected.pdf'
+    export_pdf(source, ['Trill isWa re'], [{'text':'Trell isWa re', 'page':1,
+               'box':[1465,116,1808,181], 'confidence':.95}], output)
+    assert 'Trill isWa re' not in PdfReader(output).pages[0].extract_text()
+
+
+def test_graphic_tagline_keeps_original_ornaments(tmp_path):
+    source = source_pdf(tmp_path); output = tmp_path/'tagline.pdf'
+    export_pdf(source, ["©— Quand rien ne fonctionne —©"], [{'text':'©— When Nothing Else Works —©',
+               'page':1, 'box':[300,1800,1700,1900], 'confidence':.98}], output)
+    assert 'Quand rien' not in PdfReader(output).pages[0].extract_text()
+
+
+def test_real_table_continuations_are_grouped_in_their_cells():
+    from app.documents import analyze
+    source = Path(__file__).parent/'fixtures/tsm-waveform-reference.pdf'
+    segments = analyze(source, '.pdf')
+    texts = [s['text'] for s in segments]
+    assert 'Supported Software Defined Radio (SDR) Platforms' in texts
+    assert 'End User Device (EUD) Support' in texts
+    assert any(t.startswith('Supports up to 8 spatial MANET hops') and t.endswith('per hop in Long Range Mode') for t in texts)
+    assert any(t.startswith('TrellisWare radios can be left unattended') and t.endswith('with SOCOM Tactical Communications (STC) Security') for t in texts)
+    assert not any('Supported Software Defined' in t and 'TrellisWare radio products' in t for t in texts)

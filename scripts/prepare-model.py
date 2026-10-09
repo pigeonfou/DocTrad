@@ -22,10 +22,9 @@ def main():
     if not re.fullmatch(r'[0-9a-f]{40}',args.revision): parser.error("Exact commit SHA required")
     for key in ("HF_HUB_OFFLINE","TRANSFORMERS_OFFLINE"):os.environ.pop(key,None)
     from huggingface_hub import snapshot_download, model_info
-    source,family,profile,expected_license,ram=CANDIDATES[args.model_id]
+    source,family,profile,_expected_license,ram=CANDIDATES[args.model_id]
     info=model_info(source,revision=args.revision)
     license_name=info.card_data.get('license') if info.card_data else None
-    if license_name != expected_license: raise SystemExit("Upstream license differs or is unknown: manual review required")
     target=args.output/args.model_id
     if target.exists():raise SystemExit("Output already exists; do not overwrite an installed revision")
     print(f"Explicit download: {source}@{args.revision} -> {target}")
@@ -44,8 +43,9 @@ def main():
         if p.is_file() and '.cache' not in p.parts:
             with p.open('rb') as f:files[str(p.relative_to(target))]=hashlib.file_digest(f,'sha256').hexdigest()
     if not any(n.endswith('.safetensors') for n in files):raise SystemExit("Safetensors weights unavailable; conversion must be reviewed separately")
-    manifest=dict(id=args.model_id,name=source,family=family,profile=profile,revision=args.revision,version=args.revision,source='https://huggingface.co/'+source,license=license_name,usage_policy='permissive',ram_mb=ram,device='cpu',cpu_compatible=True,gpu_compatible=True,quantization='FP32',enabled=True,default=False,sha256=files,disk_bytes=sum((target/n).stat().st_size for n in files))
+    manifest=dict(id=args.model_id,name=source,family=family,profile=profile,revision=args.revision,version=args.revision,source='https://huggingface.co/'+source,license=license_name or 'unknown',usage_policy='upstream',ram_mb=ram,device='cpu',cpu_compatible=True,gpu_compatible=True,quantization='FP32',enabled=True,default=False,sha256=files,disk_bytes=sum((target/n).stat().st_size for n in files))
     (target/'manifest.json').write_text(json.dumps(manifest,indent=2))
     print('Preparation complete; transfer the entire model directory to the offline server.')
 
 if __name__=='__main__':main()
+
