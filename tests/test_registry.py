@@ -29,3 +29,37 @@ def test_disabled_not_selected(tmp_path):
     import pytest
     with pytest.raises(ValueError):Registry(tmp_path).choose()
 
+
+def test_unchanged_models_are_not_rehashed(tmp_path, monkeypatch):
+    manifest(tmp_path)
+    original = hashlib.file_digest
+    calls = []
+    def counted(stream, algorithm):
+        calls.append(stream.name)
+        return original(stream, algorithm)
+    monkeypatch.setattr(hashlib, 'file_digest', counted)
+    assert Registry(tmp_path).list()[0]['status'] == 'ready'
+    assert len(calls) == 2
+    assert Registry(tmp_path).list()[0]['status'] == 'ready'
+    assert len(calls) == 2
+
+
+def test_cached_checksum_detects_same_size_tampering(tmp_path):
+    import os
+    directory = manifest(tmp_path)
+    assert Registry(tmp_path).list()[0]['status'] == 'ready'
+    weights = directory / 'model.safetensors'
+    stat = weights.stat()
+    weights.write_bytes(b'changed')
+    os.utime(weights, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert Registry(tmp_path).list()[0]['status'] == 'invalid'
+
+
+def test_cached_checksum_checks_new_manifest_digest(tmp_path):
+    directory = manifest(tmp_path)
+    assert Registry(tmp_path).list()[0]['status'] == 'ready'
+    path = directory / 'manifest.json'
+    item = json.loads(path.read_text())
+    item['sha256']['model.safetensors'] = '0' * 64
+    path.write_text(json.dumps(item))
+    assert Registry(tmp_path).list()[0]['status'] == 'invalid'
