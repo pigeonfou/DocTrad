@@ -1,0 +1,43 @@
+"""Explicit LAN inference configuration; never auto-discover or use public providers."""
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+from urllib.parse import urlsplit
+from .config import DATA
+
+CONFIG = DATA / "remote-ai.json"
+
+def settings():
+    if not CONFIG.is_file():
+        return None
+    value = json.loads(CONFIG.read_text())
+    if not value.get("enabled", False):
+        return None
+    url = value["base_url"].rstrip("/")
+    parts = urlsplit(url)
+    address = ipaddress.ip_address(parts.hostname or "")
+    local = address.is_loopback or any(address in ipaddress.ip_network(network)
+        for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16") if address.version == 4)
+    if not local or parts.scheme not in ("http", "https") or parts.username or parts.password or parts.query or parts.fragment or parts.path != "/v1":
+        raise ValueError("Adresse IA privée invalide")
+    if not isinstance(value.get("model"), str) or not value["model"].strip():
+        raise ValueError("Modèle IA distant absent")
+    key_file = Path(value["key_file"])
+    if not key_file.is_absolute() or key_file.stat().st_mode & 0o077:
+        raise ValueError("La clé IA doit être dans un fichier privé (mode 600 ou 400)")
+    if not os.access(key_file, os.R_OK) or not key_file.read_text().strip():
+        raise ValueError("Clé IA absente")
+    value["base_url"] = url
+    return value
+
+def manifest():
+    value = settings()
+    if value is None:
+        return None
+    revision = hashlib.sha1(json.dumps({"url": value["base_url"], "model": value["model"]}, sort_keys=True).encode()).hexdigest()
+    return dict(id="remote-bc250", name="BC-250 · " + value["model"], family="remote",
+        revision=revision, version=revision, profile="quality", status="ready", enabled=True,
+        default=bool(value.get("default", False)), ram_mb=0, license="Serveur privé",
+        path=str(DATA), remote=True)
