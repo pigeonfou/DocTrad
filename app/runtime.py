@@ -29,5 +29,8 @@ def translate(body: Request, x_runtime_secret: str = Header(default="")):
         texts = runtime.translate(manifest, body.texts, contextual=body.contextual, glossary=body.glossary)
         return {"texts": texts, "seconds": time.monotonic() - started, "runtime_peak_rss_kb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}
     except Exception as exc:
-        raise HTTPException(503, "Moteur local indisponible : " + type(exc).__name__) from exc
+        from .diagnostics import safe_details
+        diagnostic = getattr(exc, "diagnostic", {"code": "runtime_error", "exception": type(exc).__name__})
+        raise HTTPException(503, {"message": "Moteur indisponible ou segment refusé", "diagnostic": safe_details(diagnostic)}) from exc
+
 

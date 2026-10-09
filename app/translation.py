@@ -133,21 +133,39 @@ class RemoteEngine(TransformersEngine):
             data=json.dumps(payload).encode(), headers={"Authorization": "Bearer " + key,
             "Content-Type": "application/json"}, method="POST")
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+        diagnostic = {"characters": len(text)}
+        code = "remote_error"
         try:
             with opener.open(request, timeout=180) as response:
                 raw = response.read(1024*1024 + 1)
-                if len(raw) > 1024*1024: raise ValueError("Réponse IA trop volumineuse")
+                if len(raw) > 1024*1024:
+                    code = "response_too_large"
+                    raise ValueError("Réponse IA trop volumineuse")
             choice = json.loads(raw)["choices"][0]
+            diagnostic["finish_reason"] = choice.get("finish_reason")
             if choice.get("finish_reason") != "stop":
+                code = "incomplete_response"
                 raise ValueError("Traduction IA incomplète")
             translated = choice["message"]["content"]
             if not isinstance(translated, str) or not translated.strip():
+                code = "empty_response"
                 raise ValueError("Traduction IA vide")
+            import re
+            diagnostic["response_characters"] = len(translated)
+            diagnostic["markers"] = re.findall(r"<\|[^>]*\|>|<(?:end_of_turn|eos)>", translated)
+            code = "invalid_control_tokens"
             from .remote_ai import clean_translation
             return clean_translation(translated)
         except Exception as exc:
             # Never expose a key, source text or server response through error messages.
-            raise ValueError("IA distante indisponible ou réponse incomplète") from exc
+            from .diagnostics import InferenceError
+            diagnostic["exception"] = type(exc).__name__
+            if hasattr(exc, "code"):
+                diagnostic["http_status"] = exc.code
+                code = "http_error"
+            elif isinstance(exc, TimeoutError):
+                code = "timeout"
+            raise InferenceError(code, diagnostic) from exc
 
 
 class Runtime:

@@ -9,6 +9,8 @@ if (panel && ['queued','running','export_queued','exporting'].includes(panel.dat
       document.querySelector('#job-status').textContent = state.status;
       document.querySelector('#job-progress').textContent = state.progress;
       document.querySelector('progress').value = state.progress;
+      const diagnostic = document.querySelector('#job-diagnostics');
+      if (diagnostic) diagnostic.textContent = JSON.stringify(state.diagnostics || [], null, 2);
       if (['done','failed'].includes(state.status)) { clearInterval(timer); location.reload(); }
     } catch (_) { /* Next poll retries local service. */ }
   }, 2500);

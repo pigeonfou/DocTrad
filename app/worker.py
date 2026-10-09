@@ -9,6 +9,7 @@ from .documents import analyze, exports
 from .quality import check
 from .terminology import terminology
 from .translation_audit import audit_translation
+from .diagnostics import record, InferenceError, safe_details
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ def claim():
 
 def run_job(job_id):
     start = time.monotonic()
+    record(job_id, "started")
     try:
         with Session() as s:
             job = s.get(Job, job_id)
@@ -48,22 +50,35 @@ def run_job(job_id):
             if len(texts) > 20000: raise ValueError("Trop de segments")
             targets = []
             for i, text in enumerate(texts):
+                segment_started = time.monotonic()
+                record(job_id, "segment_started", segment=i + 1, characters=len(text))
                 memory = s.scalar(select(Memory).where(Memory.owner_id == job.owner_id, Memory.source == text).order_by(Memory.id.desc()).limit(1))
                 if memory: translated = memory.target
                 else:
                     with httpx.Client(timeout=300, trust_env=False) as client:
                         response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[text], "contextual":True, "glossary":terms})
-                        if response.status_code != 200: raise ValueError("Moteur local indisponible ou segment refusé ; consulter le diagnostic")
+                        if response.status_code != 200:
+                            diagnostic = {"code": "runtime_http_error", "http_status": response.status_code}
+                            try:
+                                detail = response.json().get("detail")
+                                if isinstance(detail, dict) and isinstance(detail.get("diagnostic"), dict):
+                                    diagnostic.update(safe_details(detail["diagnostic"]))
+                            except (ValueError, AttributeError): pass
+                            diagnostic["segment"] = i + 1
+                            raise InferenceError(diagnostic["code"], diagnostic)
                         translated = response.json()["texts"][0]
                 warnings = list(dict.fromkeys(check(text, translated) + audit_translation(text, translated)))
                 if items[i]["confidence"] < 0.85: warnings.append("OCR incertain : vérification nécessaire")
                 s.add(Segment(job_id=job.id, position=i, source=text, machine=translated, target=translated, warnings=warnings, metadata_json={k:v for k,v in items[i].items() if k != "text"}))
                 targets.append(translated)
+                record(job_id, "segment_done", segment=i + 1, seconds=round(time.monotonic() - segment_started, 2))
                 job.progress = int((i + 1) / len(texts) * 90); job.heartbeat = now(); s.commit()
                 (DATA / "worker-heartbeat").write_text(str(time.time()))
             export_job(s, job)
+            record(job_id, "done", seconds=round(time.monotonic() - start, 2))
             job.status = "done"; job.progress = 100; job.elapsed = int(time.monotonic() - start); s.commit()
     except Exception as exc:
+        record(job_id, "failed", **getattr(exc, "diagnostic", {"code": "processing_error", "exception": type(exc).__name__}))
         # No confidential document text or model response in logs.
         log.error("job=%s error=%s", job_id, type(exc).__name__)
         with Session.begin() as s:
@@ -91,4 +106,5 @@ def recover_layout_failures():
                 job.error = ''
 
 if __name__ == "__main__": main()
+
 

@@ -17,6 +17,7 @@ from .registry import Registry
 from .documents import validate
 from .quality import check
 from .translation_audit import audit_translation
+from .diagnostics import history
 
 @asynccontextmanager
 async def lifespan(app):
@@ -133,13 +134,13 @@ def detail(request: Request, job_id: str):
     with Session() as db:
         job = owned(request, db, job_id)
         segments = list(db.scalars(select(Segment).where(Segment.job_id == job_id).order_by(Segment.position)))
-        return templates.TemplateResponse(request=request, name="job.html", context={"job":job,"segments":segments,"csrf":request.session["csrf"]})
+        return templates.TemplateResponse(request=request, name="job.html", context={"job":job,"segments":segments,"diagnostics":history(job_id),"csrf":request.session["csrf"]})
 
 @app.get("/jobs/{job_id}/status")
 def status(request: Request, job_id: str):
     with Session() as db:
         job = owned(request, db, job_id)
-        return {"status":job.status,"progress":job.progress}
+        return {"status":job.status,"progress":job.progress,"diagnostics":history(job_id)}
 
 @app.get("/jobs/{job_id}/download/{format}")
 def download(request: Request, job_id: str, format: str):
@@ -263,3 +264,4 @@ def remote_api_key(request: Request, api_key: str = Form(), token: str = Form())
     except OSError:
         raise HTTPException(503, "Impossible d'enregistrer la clé : vérifiez les permissions du dossier de données.")
     return RedirectResponse(BASE_PATH + "/admin?remote_saved=1", status_code=303)
+

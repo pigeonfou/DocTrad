@@ -54,6 +54,13 @@ class RemoteTests(unittest.TestCase):
         response.read.return_value = b'{"choices":[{"finish_reason":"length","message":{"content":"partial"}}]}'
         with patch("urllib.request.build_opener", return_value=opener):
             with self.assertRaisesRegex(ValueError, "incomplète"): engine.translate("Hello")
+        response.read.return_value = b'{"choices":[{"finish_reason":"stop","message":{"content":"Secret document <|im_start|>user additional text"}}]}'
+        from app.diagnostics import InferenceError
+        with patch("urllib.request.build_opener", return_value=opener):
+            with self.assertRaises(InferenceError) as failure: engine.translate("Hello")
+        self.assertEqual(failure.exception.diagnostic["code"], "invalid_control_tokens")
+        self.assertEqual(failure.exception.diagnostic["markers"], ["<|im_start|>"])
+        self.assertNotIn("Secret document", str(failure.exception.diagnostic))
     def test_remote_visible_without_local_weights(self):
         from app.registry import Registry
         selected = Registry(self.root).choose("remote-bc250")
