@@ -11,11 +11,15 @@ RELEASE=/opt/docutranslate/releases/$VERSION
 OLD=$(readlink -f /opt/docutranslate/current)
 mkdir "$RELEASE"
 tar -C "$SOURCE" --exclude=.git --exclude=.venv --exclude=models --exclude=data --exclude=offline -cf - . | tar -C "$RELEASE" -xf -
+install -d -m 700 /var/tmp/docutranslate-offline-install
+export TMPDIR=/var/tmp/docutranslate-offline-install
 python3 -m venv "$RELEASE/.venv"
 "$RELEASE/.venv/bin/pip" install --no-index --find-links="${3:?Wheelhouse required}" -r "$RELEASE/requirements.lock"
 "$RELEASE/.venv/bin/pip" install --no-deps --no-build-isolation "$RELEASE"
 "$RELEASE/.venv/bin/pip" check
 "$RELEASE/.venv/bin/python" -m compileall -q "$RELEASE/app"
+chmod -R g+rX,o-rwx "$RELEASE"
+chown -R root:docutranslate "$RELEASE"
 systemctl stop docutranslate-web docutranslate-worker docutranslate-translation
 # Version 0.1 schema has no destructive migration. Future releases need explicit
 # compatibility metadata and versioned migrations before this command is reused.
