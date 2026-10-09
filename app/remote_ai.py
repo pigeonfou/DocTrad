@@ -90,6 +90,9 @@ def clean_translation(content):
     import re
     if not isinstance(content, str): raise ValueError("Traduction IA invalide")
     result = content.replace("<|file_separator|>", "\n").strip()
+    # Observed GGUF artifact: a dangling assistant header, with no body.
+    # Do not remove a header followed by generated conversation text.
+    result = re.sub(r"\s*<\|im_start\|>assistant\|>\s*$", "", result).rstrip()
     tokens = ("<|file_separator|>", "<|im_end|>", "<end_of_turn>", "<eos>")
     while any(result.endswith(token) for token in tokens):
         for token in tokens:

@@ -105,6 +105,11 @@ class KeyTests(unittest.TestCase):
 
 
 class ControlTokenTests(unittest.TestCase):
+    def test_dangling_assistant_header_removed_only_at_end(self):
+        self.assertEqual(remote_ai.clean_translation("Traduction française.\n<|im_start|>assistant|>"),
+                         "Traduction française.")
+        for text in ("<|im_start|>assistant|>", "Traduction.<|im_start|>assistant|>Autre message"):
+            with self.assertRaises(ValueError): remote_ai.clean_translation(text)
     def test_internal_file_separator_preserves_both_passages(self):
         self.assertEqual(remote_ai.clean_translation("Première phrase.<|file_separator|>Deuxième phrase."),
                          "Première phrase.\nDeuxième phrase.")
