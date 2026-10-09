@@ -54,3 +54,10 @@ Un administrateur peut maintenant ouvrir **Système & modèles**, sélectionner 
 et lancer son téléchargement initial avec suivi d'avancement. Commencer par OPUS anglais
 → français. La traduction reste locale et hors ligne après installation.
 Voir [la procédure et le dépannage](docs/modeles-telechargement.md).
+
+## Modes de déploiement
+
+- Autonome sur serveur dédié : [Ubuntu 24/26](docs/INSTALL_UBUNTU_24_04.md), [GitHub et Cloudflare](docs/GITHUB_CLOUDFLARE_SETUP.md), [mise à jour](docs/UPDATE.md).
+- Instance gérée et isolée : [OneForAll](docs/ONEFORALL.md), branche `main`.
+
+Ne pas exécuter les scripts autonomes sur une instance OneForAll.
