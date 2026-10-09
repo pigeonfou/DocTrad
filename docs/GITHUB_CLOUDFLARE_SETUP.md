@@ -1,6 +1,6 @@
 # DocTrad — intégration, déploiement GitHub Actions et accès Cloudflare
 
-Procédure pour un **Ubuntu Server 24.04 amd64 dédié**. Ne pas appliquer telle quelle au serveur Apache/ProjectFlow existant. Prévoir 16 Go RAM minimum et un SSD d'au moins 80 Go libres : le lock Python actuel inclut des bibliothèques CUDA volumineuses et chaque release possède un venv. Aucun conteneur de production.
+Procédure pour un **Ubuntu Server 24.04 ou 26.04 x86_64 dédié**. Ne pas appliquer telle quelle au serveur Apache/ProjectFlow existant. Prévoir 16 Go RAM minimum et un SSD d'au moins 80 Go libres : le lock Python actuel inclut des bibliothèques CUDA volumineuses et chaque release possède un venv. Aucun conteneur de production.
 
 ## À quel moment installe-t-on le runner ?
 
@@ -89,7 +89,8 @@ Si ces chemins existent déjà, inspecter leur contenu ; ne pas régénérer/éc
 
 ```bash
 cd /usr/local/src/DocTrad
-sudo ./install.sh
+sudo bash install.sh
+# Ubuntu 26.04 : utiliser à la place sudo bash install.sh --experimental-ubuntu26
 ```
 
 Le script demande le nom et le mot de passe administrateur (12 caractères minimum), génère les secrets, crée les services natifs et la DB. Plusieurs gigaoctets seront téléchargés. Aucun modèle n'est téléchargé implicitement.
@@ -300,3 +301,7 @@ curl -fsS http://127.0.0.1:8082/health
 ```
 
 8090 en panne : application/DB/services ; 8082 en panne avec 8090 OK : Nginx ; local OK mais public en panne : tunnel/route/DNS/Cloudflare Access. Ne pas désactiver l'authentification pour résoudre ces erreurs.
+
+## Installation gérée par OneForAll
+
+Cette chaîne autonome cible `/opt/docutranslate` et les services `docutranslate-*`. Pour l’instance `/opt/oneforall/apps/doctrad`, suivre [ONEFORALL.md](ONEFORALL.md) et le runner OneForAll ; ne pas installer le runner autonome sur cette même instance. Le téléchargement initial de modèles est désormais accessible depuis Système & modèles ; la traduction reste locale.
