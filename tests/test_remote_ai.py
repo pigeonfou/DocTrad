@@ -117,6 +117,38 @@ class ControlTokenTests(unittest.TestCase):
         self.assertEqual(remote_ai.clean_translation("Traduction.\n<|im_start|>"), "Traduction.")
         for text in ("<|im_start|>", "Traduction.<|im_start|>user Autre texte"):
             with self.assertRaises(ValueError): remote_ai.clean_translation(text)
+
+class RecoveryTests(unittest.TestCase):
+    def test_scan_caption_bypasses_model_and_respects_glossary(self):
+        engine = RemoteEngine()
+        with patch.object(engine, "_translate_prose", side_effect=AssertionError("Unexpected inference")):
+            for text in ("SCAN ME", "SCAN M E", "S C A N M E", "scan me"):
+                self.assertEqual(engine.translate_contextual(text), "SCANNEZ-MOI")
+            self.assertEqual(engine.translate_contextual("SCAN M E", {"SCAN ME": "SCANNER"}), "SCANNER")
+        with patch.object(engine, "_translate_prose", return_value="Traduction") as inference:
+            engine.translate_contextual("SCAN M E equipment")
+            inference.assert_called()
+    def test_one_recovery_round_succeeds(self):
+        from app.diagnostics import InferenceError
+        engine = RemoteEngine()
+        with patch.object(engine, "_request_translation", side_effect=[
+                InferenceError("incomplete_response", {}), "Traduction complète"]) as request:
+            self.assertEqual(engine._translate_prose("Short caption"), "Traduction complète")
+            self.assertEqual(request.call_count, 2)
+            self.assertTrue(request.call_args.kwargs["retry"])
+    def test_second_failure_is_not_exported(self):
+        from app.diagnostics import InferenceError
+        engine = RemoteEngine()
+        with patch.object(engine, "_request_translation", side_effect=InferenceError("incomplete_response", {})) as request:
+            with self.assertRaises(InferenceError) as failure: engine._translate_prose("Short caption")
+            self.assertEqual(request.call_count, 2)
+            self.assertEqual(failure.exception.diagnostic["attempt"], 2)
+    def test_network_errors_not_retried(self):
+        from app.diagnostics import InferenceError
+        engine = RemoteEngine()
+        with patch.object(engine, "_request_translation", side_effect=InferenceError("http_error", {})) as request:
+            with self.assertRaises(InferenceError): engine._translate_prose("Short caption")
+            self.assertEqual(request.call_count, 1)
     def test_dangling_assistant_header_removed_only_at_end(self):
         self.assertEqual(remote_ai.clean_translation("Traduction française.\n<|im_start|>assistant|>"),
                          "Traduction française.")

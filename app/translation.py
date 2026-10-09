@@ -60,6 +60,10 @@ class TransformersEngine(TranslationEngine):
         import re
         from .quality import segment
         terms = glossary or {}
+        # QR captions can be extracted as "SCAN M E" or spaced letters.
+        # Match the entire caption only; do not rewrite prose or identifiers.
+        if re.fullmatch(r"\s*S\s*C\s*A\s*N\s+M\s*E\s*", text, re.IGNORECASE):
+            return terms.get(text.strip(), terms.get("SCAN ME", "SCANNEZ-MOI"))
         if text.strip() in terms:
             return terms[text.strip()]
         bullet = re.match(r'^([•●▪*–—»«-]\s*)(.+)$', text.strip())
@@ -118,6 +122,23 @@ class RemoteEngine(TransformersEngine):
     def health(self):
         return {"loaded": self.manifest is not None, "model": self.manifest and self.manifest["id"], "remote": True}
     def _translate_prose(self, text):
+        from .diagnostics import InferenceError
+        try:
+            return self._request_translation(text)
+        except InferenceError as first:
+            if first.diagnostic.get("code") not in (
+                    "incomplete_response", "invalid_control_tokens", "empty_response"):
+                raise
+            # One recovery round only; no recursion or partial-answer export.
+            from .quality import segment
+            chunks = segment(text, max_chars=250)
+            try:
+                return " ".join(self._request_translation(chunk, retry=True) for chunk in chunks)
+            except InferenceError as last:
+                last.diagnostic["attempt"] = 2
+                raise
+
+    def _request_translation(self, text, retry=False):
         import json
         import urllib.request
         from pathlib import Path
@@ -128,6 +149,10 @@ class RemoteEngine(TransformersEngine):
                 return None
         from .remote_ai import translation_payload
         payload = translation_payload(self.settings["model"], text)
+        if retry and "translategemma" in self.settings["model"].lower():
+            payload["repetition_penalty"] = 1.1
+            payload["max_tokens"] = 512
+            payload["messages"][0]["content"] += "\n\nReturn one French translation only. Do not repeat the source text or generate a conversation."
         key = Path(self.settings["key_file"]).read_text().strip()
         request = urllib.request.Request(self.settings["base_url"] + "/chat/completions",
             data=json.dumps(payload).encode(), headers={"Authorization": "Bearer " + key,
