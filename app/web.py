@@ -249,3 +249,17 @@ def default_model(request: Request, model_id: str = Form(), token: str = Form())
         raise HTTPException(400, str(exc)) from exc
     return RedirectResponse(BASE_PATH + '/admin', status_code=303)
 
+
+@app.post("/admin/remote-ai/key")
+def remote_api_key(request: Request, api_key: str = Form(), token: str = Form()):
+    csrf(request, token)
+    with Session() as db:
+        if not authenticated(request, db).admin: raise HTTPException(403)
+    from .remote_ai import save_api_key
+    try:
+        save_api_key(api_key)
+    except ValueError:
+        raise HTTPException(400, "Clé API invalide.")
+    except OSError:
+        raise HTTPException(503, "Impossible d'enregistrer la clé : vérifiez les permissions du dossier de données.")
+    return RedirectResponse(BASE_PATH + "/admin?remote_saved=1", status_code=303)

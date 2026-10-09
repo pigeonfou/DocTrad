@@ -63,3 +63,20 @@ class RemoteTests(unittest.TestCase):
         with patch.object(RemoteEngine, "_translate_prose", return_value="Bonjour"):
             self.assertEqual(runtime.translate(remote_ai.manifest(), ["Hello"], contextual=True), ["Bonjour"])
         self.assertIsInstance(runtime.engine, RemoteEngine)
+
+class KeyTests(unittest.TestCase):
+    def test_key_rotation_private_and_no_secret_in_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "remote-ai.json"
+            with patch.object(remote_ai, "CONFIG", config):
+                remote_ai.save_api_key("first-secret")
+                remote_ai.save_api_key("replacement-secret")
+                value = json.loads(config.read_text())
+                key = Path(value["key_file"])
+                self.assertEqual(key.read_text().strip(), "replacement-secret")
+                self.assertEqual(key.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(config.stat().st_mode & 0o777, 0o600)
+                self.assertNotIn("replacement-secret", config.read_text())
+                self.assertEqual(remote_ai.settings()["model"], "unsloth/Qwen3.8-27B-GGUF")
+                with self.assertRaises(ValueError): remote_ai.save_api_key("invalid\nkey")
+                self.assertEqual(key.read_text().strip(), "replacement-secret")

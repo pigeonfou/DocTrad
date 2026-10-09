@@ -41,3 +41,25 @@ def manifest():
         revision=revision, version=revision, profile="quality", status="ready", enabled=True,
         default=bool(value.get("default", False)), ram_mb=0, license="Serveur privé",
         path=str(DATA), remote=True)
+
+def save_api_key(key):
+    """Write credentials privately and atomically; never return their value."""
+    import tempfile
+    if not isinstance(key, str) or not key or len(key) > 512 or any(c.isspace() for c in key):
+        raise ValueError("Clé API invalide")
+    value = json.loads(CONFIG.read_text()) if CONFIG.exists() else dict(
+        enabled=True, default=False, base_url="http://192.168.6.22:8888/v1",
+        model="unsloth/Qwen3.8-27B-GGUF")
+    key_file = CONFIG.parent / "remote-ai.key"
+    def write(path, content):
+        fd, temporary = tempfile.mkstemp(prefix=".remote-ai-", dir=CONFIG.parent)
+        try:
+            with os.fdopen(fd, "w") as stream:
+                stream.write(content)
+            os.chmod(temporary, 0o600)
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary): os.unlink(temporary)
+    write(key_file, key + "\n")
+    value["key_file"] = str(key_file)
+    write(CONFIG, json.dumps(value, indent=2) + "\n")

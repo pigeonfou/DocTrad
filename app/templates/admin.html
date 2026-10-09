@@ -1,5 +1,14 @@
 {% extends "base.html" %}{% block content %}
 <h1>Système & modèles IA</h1>
+<section class="card"><h2>Serveur IA BC-250</h2>
+<p>La clé API est conservée sur le serveur DocTrad. Elle n'est jamais affichée. Son remplacement s'applique aux prochaines requêtes, sans redémarrage.</p>
+{% if request.query_params.get('remote_saved') == '1' %}<p role="status">Clé API enregistrée.</p>{% endif %}
+<form action="{{ base_path }}/admin/remote-ai/key" method="post">
+<input type="hidden" name="token" value="{{ csrf }}">
+<label>Nouvelle clé API Unsloth<input type="password" name="api_key" autocomplete="new-password" maxlength="512" required></label>
+<button>Enregistrer la clé API</button>
+</form>
+</section>
 <section class="card"><h2>Installer un modèle de traduction</h2>
 <p>Choisissez un modèle local. Le téléchargement initial contacte Hugging Face pour récupérer les poids publics ; vos documents ne sont pas envoyés. Après installation, la traduction reste hors ligne.</p>
 <form action="{{ base_path }}/admin/models/download" method="post">
