@@ -16,6 +16,11 @@ class Registry:
                 item["status"] = "ready" if self.verify(item) else "invalid"
                 result.append(item)
             except (ValueError, OSError, KeyError): continue
+        from .remote_ai import manifest
+        try:
+            remote = manifest()
+            if remote: result.append(remote)
+        except (ValueError, OSError, KeyError): pass
         return result
     def verify(self, item):
         path = Path(item["path"]).resolve()
@@ -47,6 +52,6 @@ class Registry:
         except (OSError, KeyError, ValueError): pass
         if not candidates: raise ValueError("Aucun modèle local vérifié et compatible disponible pour ce choix.")
         # Quality recommendations require actual benchmark results, never parameter count.
-        candidates.sort(key=lambda m: (not m.get("default", False), -m.get("benchmark", {}).get("technical_score", 0), m.get("ram_mb", 999999)))
+        candidates.sort(key=lambda m: (not (m.get("remote") and m.get("default", False)), not m.get("default", False), -m.get("benchmark", {}).get("technical_score", 0), m.get("ram_mb", 999999)))
         return candidates[0]
 

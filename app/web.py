@@ -65,7 +65,7 @@ def health():
             runtime = httpx.get(RUNTIME_URL + "/health", timeout=2, trust_env=False).json()
         except Exception: runtime = {"available":False,"loaded":False}
         models = [m for m in Registry().list() if m["status"] == "ready" and m.get("enabled",True)]
-        return JSONResponse({"web":True,"database":True,"storage":storage,"offline":True,"worker":worker,"translation_runtime":runtime,"local_models":len(models),"ocr":bool(__import__('shutil').which("tesseract")),"ready":storage and worker and bool(models) and runtime.get("available",True)}, status_code=200 if storage else 503)
+        return JSONResponse({"web":True,"database":True,"storage":storage,"offline":not any(m.get("remote") for m in Registry().list()),"worker":worker,"translation_runtime":runtime,"local_models":len(models),"ocr":bool(__import__('shutil').which("tesseract")),"ready":storage and worker and bool(models) and runtime.get("available",True)}, status_code=200 if storage else 503)
     except Exception: return JSONResponse({"web":True,"database":False,"offline":True}, status_code=503)
 
 @app.get("/login", response_class=HTMLResponse)
@@ -225,7 +225,26 @@ def default_model(request: Request, model_id: str = Form(), token: str = Form())
         if selected['id'] != model_id:
             raise ValueError('Choisissez un modèle installé et vérifié.')
         from .cli import model_action
-        model_action('set-default', model_id)
+        if selected.get("remote"):
+            import json
+            from .remote_ai import CONFIG
+            value = json.loads(CONFIG.read_text())
+            value["default"] = True
+            temporary = CONFIG.with_suffix(".tmp")
+            temporary.write_text(json.dumps(value))
+            temporary.chmod(0o600)
+            temporary.replace(CONFIG)
+        else:
+            from .remote_ai import CONFIG
+            if CONFIG.exists():
+                import json
+                value = json.loads(CONFIG.read_text())
+                value["default"] = False
+                temporary = CONFIG.with_suffix(".tmp")
+                temporary.write_text(json.dumps(value))
+                temporary.chmod(0o600)
+                temporary.replace(CONFIG)
+            model_action('set-default', model_id)
     except (ValueError, SystemExit) as exc:
         raise HTTPException(400, str(exc)) from exc
     return RedirectResponse(BASE_PATH + '/admin', status_code=303)
