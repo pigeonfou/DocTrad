@@ -1,8 +1,26 @@
 import hashlib
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 from .config import MODELS
+
+
+def _signature(path):
+    stat = path.stat()
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+
+
+@lru_cache(maxsize=256)
+def _file_checksum(path, signature):
+    # Keep only digests in memory; changed/replaced files get a new cache key.
+    if _signature(path) != signature:
+        raise OSError("Model file changed before verification")
+    with path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    if _signature(path) != signature:
+        raise OSError("Model file changed during verification")
+    return digest
 
 
 class Registry:
@@ -29,8 +47,7 @@ class Registry:
         for name, digest in files.items():
             f = (path / name).resolve()
             if not f.is_relative_to(path) or not f.is_file(): return False
-            with f.open("rb") as stream:
-                actual = hashlib.file_digest(stream, "sha256").hexdigest()
+            actual = _file_checksum(f, _signature(f))
             if actual != digest: return False
         return True
     def choose(self, requested="auto"):
