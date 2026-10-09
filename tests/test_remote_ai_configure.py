@@ -33,7 +33,7 @@ class ConfigureTests(unittest.TestCase):
             with patch("sys.argv", argv), patch.object(configure.os, "geteuid", return_value=0), \
                     patch.object(configure.pwd, "getpwnam", return_value=SimpleNamespace(pw_uid=0, pw_gid=0)), \
                     patch.object(configure.os, "chown"), patch("urllib.request.build_opener", return_value=opener):
-                if quant != "Q4_K_M" or finish != "stop":
+                if quant.upper() != "Q4_K_M" or finish != "stop":
                     with self.assertRaises(SystemExit): configure.main()
                     self.assertEqual(config.read_text(), previous)
                 else:
@@ -45,5 +45,6 @@ class ConfigureTests(unittest.TestCase):
                     self.assertNotIn("test-key", config.read_text())
                 self.assertEqual(key.read_text(), "test-key\n")
     def test_detect_test_and_save_preserving_key(self): self.run_configure()
+    def test_lowercase_quantization(self): self.run_configure(quant="q4_k_m")
     def test_wrong_quantization_keeps_configuration(self): self.run_configure(quant="Q2_K")
     def test_truncated_response_keeps_configuration(self): self.run_configure(finish="length")

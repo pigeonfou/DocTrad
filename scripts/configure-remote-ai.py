@@ -66,7 +66,7 @@ def main():
             candidates = [m for m in models if m.get("loaded") is True
                 and "translategemma" in m.get("id", "").lower()
                 and "12b" in m["id"].lower()
-                and (m.get("quant") == "Q4_K_M" or ".Q4_K_M.gguf" in m["id"])]
+                and (str(m.get("quant", "")).upper() == "Q4_K_M" or ".q4_k_m.gguf" in m["id"].lower())]
             if len(candidates) != 1:
                 parser.error("Charger uniquement TranslateGemma 12B Q4_K_M dans Unsloth, puis relancer")
             config["model"] = candidates[0]["id"]
