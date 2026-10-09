@@ -1,5 +1,32 @@
 # IA distante sur le réseau privé
 
+## TranslateGemma 12B Q4_K_M
+
+Dans Unsloth, charger `translategemma-12b-it.Q4_K_M.gguf` depuis
+`mradermacher/translategemma-12b-it-GGUF`, avec un contexte de 4096 tokens
+pour commencer et une seule traduction à la fois. Décharger Qwen avant.
+DocTrad utilise le contenu typé TranslateGemma : source `en`, cible `fr`,
+texte seul, température 0 et 1024 tokens de sortie maximum. Les langues
+sont également transmises via `chat_template_kwargs` pour llama.cpp.
+Le template TranslateGemma du GGUF doit être pris en charge par Unsloth/llama.cpp.
+Les requêtes des autres modèles conservent leur prompt générique.
+
+Après déploiement, pour conserver la clé actuelle :
+
+```bash
+sudo python3 /opt/oneforall/apps/doctrad/current/scripts/configure-remote-ai.py --translategemma --reuse-key
+sudo systemctl restart oneforall-doctrad-runtime oneforall-doctrad-web
+```
+
+Le script détecte l'identifiant API réel du modèle chargé et sa quantification,
+teste une courte traduction puis affiche le résultat à vérifier en français.
+Il active ce moteur par défaut pour les nouveaux travaux. En cas de modèle
+absent, de quantification incorrecte ou de réponse invalide, il garde la
+configuration précédente. Retirer `--reuse-key` pour saisir une nouvelle clé.
+Un test API réussi ne garantit pas la qualité linguistique : vérifier le résultat
+affiché et comparer ensuite quelques documents représentatifs.
+Ne pas changer de modèle pendant des travaux en cours.
+
 Le moteur facultatif remote-bc250 envoie les passages anglais au serveur Unsloth
 configuré. L'extraction, l'OCR, les images et l'export restent sur DocTrad.
 Il ne faut pas exposer le port Unsloth via Cloudflare.

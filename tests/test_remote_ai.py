@@ -64,6 +64,26 @@ class RemoteTests(unittest.TestCase):
             self.assertEqual(runtime.translate(remote_ai.manifest(), ["Hello"], contextual=True), ["Bonjour"])
         self.assertIsInstance(runtime.engine, RemoteEngine)
 
+    def test_translategemma_native_request(self):
+        from unittest.mock import MagicMock
+        self.value["model"] = remote_ai.DEFAULT_MODEL
+        self.config.write_text(json.dumps(self.value))
+        engine = RemoteEngine()
+        engine.load(remote_ai.manifest())
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = b'{"choices":[{"finish_reason":"stop","message":{"content":"Bonjour"}}]}'
+        opener = MagicMock()
+        opener.open.return_value = response
+        with patch("urllib.request.build_opener", return_value=opener):
+            self.assertEqual(engine.translate("Hello"), "Bonjour")
+        payload = json.loads(opener.open.call_args.args[0].data)
+        self.assertEqual(payload["messages"], [{"role": "user", "content": [{
+            "type": "text", "source_lang_code": "en", "target_lang_code": "fr", "text": "Hello"}]}])
+        self.assertEqual(payload["chat_template_kwargs"], {"source_lang_code": "en", "target_lang_code": "fr"})
+        self.assertEqual(payload["max_tokens"], 1024)
+        self.assertEqual(payload["temperature"], 0)
+
 class KeyTests(unittest.TestCase):
     def test_key_rotation_private_and_no_secret_in_config(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -77,6 +97,7 @@ class KeyTests(unittest.TestCase):
                 self.assertEqual(key.stat().st_mode & 0o777, 0o600)
                 self.assertEqual(config.stat().st_mode & 0o777, 0o600)
                 self.assertNotIn("replacement-secret", config.read_text())
-                self.assertEqual(remote_ai.settings()["model"], "unsloth/Qwen3.8-27B-GGUF")
+                self.assertEqual(remote_ai.settings()["model"], remote_ai.DEFAULT_MODEL)
                 with self.assertRaises(ValueError): remote_ai.save_api_key("invalid\nkey")
                 self.assertEqual(key.read_text().strip(), "replacement-secret")
+
