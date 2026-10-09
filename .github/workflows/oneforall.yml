@@ -1,7 +1,7 @@
 name: OneForAll integration checks
 on:
   push:
-    branches: [OneForAll]
+    branches: [main, OneForAll]
   pull_request:
 permissions:
   contents: read
