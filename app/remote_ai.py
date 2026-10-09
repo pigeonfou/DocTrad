@@ -11,13 +11,13 @@ CONFIG = DATA / "remote-ai.json"
 DEFAULT_MODEL = "mradermacher/translategemma-12b-it-GGUF"
 
 def translation_payload(model, text):
-    """Native TranslateGemma input; ordinary chat prompts remain for Qwen."""
+    """Text chat format verified with the private Unsloth GGUF endpoint."""
     payload = dict(model=model, temperature=0, max_tokens=1024, stream=False)
     if "translategemma" in model.lower():
-        payload["messages"] = [{"role": "user", "content": [{
-            "type": "text", "source_lang_code": "en", "target_lang_code": "fr",
-            "text": text}]}]
-        # llama.cpp reads language overrides here as well as typed content.
+        payload["messages"] = [{"role": "user", "content":
+            "You are a professional English (en) to French (fr) translator. "
+            "Produce only the French translation, without explanations or commentary. "
+            "Please translate the following English text into French:\n\n" + text}]
         payload["chat_template_kwargs"] = {"source_lang_code": "en", "target_lang_code": "fr"}
     else:
         payload["max_tokens"] = 2048
@@ -84,3 +84,16 @@ def save_api_key(key):
     value["key_file"] = str(key_file)
     write(CONFIG, json.dumps(value, indent=2) + "\n")
 
+
+def clean_translation(content):
+    """Strip only known trailing control tokens; reject embedded controls."""
+    import re
+    if not isinstance(content, str): raise ValueError("Traduction IA invalide")
+    result = content.strip()
+    tokens = ("<|file_separator|>", "<|im_end|>", "<end_of_turn>", "<eos>")
+    while any(result.endswith(token) for token in tokens):
+        for token in tokens:
+            if result.endswith(token): result = result[:-len(token)].rstrip()
+    if not result or re.search(r"<\|[^>]*\|>|<(?:end_of_turn|eos)>", result):
+        raise ValueError("Traduction IA invalide")
+    return result

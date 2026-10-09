@@ -78,8 +78,10 @@ class RemoteTests(unittest.TestCase):
         with patch("urllib.request.build_opener", return_value=opener):
             self.assertEqual(engine.translate("Hello"), "Bonjour")
         payload = json.loads(opener.open.call_args.args[0].data)
-        self.assertEqual(payload["messages"], [{"role": "user", "content": [{
-            "type": "text", "source_lang_code": "en", "target_lang_code": "fr", "text": "Hello"}]}])
+        self.assertEqual(payload["messages"][0]["role"], "user")
+        self.assertIsInstance(payload["messages"][0]["content"], str)
+        self.assertIn("English (en) to French (fr)", payload["messages"][0]["content"])
+        self.assertTrue(payload["messages"][0]["content"].endswith("Hello"))
         self.assertEqual(payload["chat_template_kwargs"], {"source_lang_code": "en", "target_lang_code": "fr"})
         self.assertEqual(payload["max_tokens"], 1024)
         self.assertEqual(payload["temperature"], 0)
@@ -101,3 +103,11 @@ class KeyTests(unittest.TestCase):
                 with self.assertRaises(ValueError): remote_ai.save_api_key("invalid\nkey")
                 self.assertEqual(key.read_text().strip(), "replacement-secret")
 
+
+class ControlTokenTests(unittest.TestCase):
+    def test_trailing_tokens_removed(self):
+        self.assertEqual(remote_ai.clean_translation("Bonjour.\n<|file_separator|>"), "Bonjour.")
+        self.assertEqual(remote_ai.clean_translation("Bonjour. <|im_end|>"), "Bonjour.")
+    def test_embedded_and_empty_controls_refused(self):
+        for text in ("<|file_separator|>", "Bonjour <|im_end|> suite", "Bonjour <|unknown|>"):
+            with self.assertRaises(ValueError): remote_ai.clean_translation(text)

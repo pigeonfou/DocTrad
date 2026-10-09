@@ -5,8 +5,7 @@
 Dans Unsloth, charger `translategemma-12b-it.Q4_K_M.gguf` depuis
 `mradermacher/translategemma-12b-it-GGUF`, avec un contexte de 4096 tokens
 pour commencer et une seule traduction à la fois. Décharger Qwen avant.
-DocTrad utilise le contenu typé TranslateGemma : source `en`, cible `fr`,
-texte seul, température 0 et 1024 tokens de sortie maximum. Les langues
+DocTrad utilise une consigne en texte simple validée avec Unsloth : anglais vers français, température 0 et 1024 tokens de sortie maximum. Les langues
 sont également transmises via `chat_template_kwargs` pour llama.cpp.
 Le template TranslateGemma du GGUF doit être pris en charge par Unsloth/llama.cpp.
 Les requêtes des autres modèles conservent leur prompt générique.
@@ -23,7 +22,8 @@ teste une courte traduction puis affiche le résultat à vérifier en français.
 Il active ce moteur par défaut pour les nouveaux travaux. En cas de modèle
 absent, de quantification incorrecte ou de réponse invalide, il garde la
 configuration précédente. Retirer `--reuse-key` pour saisir une nouvelle clé.
-Un test API réussi ne garantit pas la qualité linguistique : vérifier le résultat
+Le test exige une réponse française attendue pour sa phrase de contrôle ;
+cela ne garantit pas la qualité linguistique des documents : vérifier le résultat
 affiché et comparer ensuite quelques documents représentatifs.
 Ne pas changer de modèle pendant des travaux en cours.
 

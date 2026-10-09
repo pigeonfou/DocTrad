@@ -143,7 +143,8 @@ class RemoteEngine(TransformersEngine):
             translated = choice["message"]["content"]
             if not isinstance(translated, str) or not translated.strip():
                 raise ValueError("Traduction IA vide")
-            return translated.strip()
+            from .remote_ai import clean_translation
+            return clean_translation(translated)
         except Exception as exc:
             # Never expose a key, source text or server response through error messages.
             raise ValueError("IA distante indisponible ou réponse incomplète") from exc

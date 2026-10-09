@@ -10,7 +10,7 @@ import sys
 import urllib.request
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.remote_ai import translation_payload
+from app.remote_ai import translation_payload, clean_translation
 
 def atomic(path, content, account):
     fd, temporary = tempfile.mkstemp(prefix=".remote-ai-", dir=path.parent)
@@ -72,11 +72,15 @@ def main():
             config["model"] = candidates[0]["id"]
             source = "Disconnect the power supply before servicing."
             choice = request("/chat/completions", translation_payload(config["model"], source))["choices"][0]
-            result = choice["message"]["content"]
+            result = clean_translation(choice["message"]["content"])
             if choice.get("finish_reason") != "stop" or not isinstance(result, str) or not result.strip() or result.strip() == source:
                 parser.error("Test de traduction invalide ; configuration conservée")
         except Exception:
             parser.error("Test Unsloth échoué ; configuration conservée. Vérifier le modèle et son template TranslateGemma")
+        # A probe-specific language check, not a general language detector.
+        normalized = result.lower()
+        if "alimentation" not in normalized or not any(word in normalized for word in ("débranch", "déconnect", "coupez", "couper")):
+            parser.error("Le test ne produit pas la traduction française attendue ; configuration conservée")
         config["default"] = True
         print("Test de traduction :", result.strip())
     atomic(key_file, key + "\n", account)

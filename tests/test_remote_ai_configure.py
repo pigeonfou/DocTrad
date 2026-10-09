@@ -11,7 +11,7 @@ configure = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(configure)
 
 class ConfigureTests(unittest.TestCase):
-    def run_configure(self, quant="Q4_K_M", finish="stop"):
+    def run_configure(self, quant="Q4_K_M", finish="stop", text="Débranchez l’alimentation avant toute maintenance."):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             key = root / "remote-ai.key"
@@ -21,7 +21,7 @@ class ConfigureTests(unittest.TestCase):
             config.write_text(json.dumps(dict(model="old-qwen", key_file=str(key))))
             previous = config.read_text()
             replies = [dict(data=[dict(id="mradermacher/translategemma-12b-it-GGUF", loaded=True, quant=quant)]),
-                dict(choices=[dict(finish_reason=finish, message=dict(content="Débranchez l’alimentation avant toute maintenance."))])]
+                dict(choices=[dict(finish_reason=finish, message=dict(content=text))])]
             opener = MagicMock()
             def response(*args, **kwargs):
                 result = MagicMock()
@@ -33,7 +33,7 @@ class ConfigureTests(unittest.TestCase):
             with patch("sys.argv", argv), patch.object(configure.os, "geteuid", return_value=0), \
                     patch.object(configure.pwd, "getpwnam", return_value=SimpleNamespace(pw_uid=0, pw_gid=0)), \
                     patch.object(configure.os, "chown"), patch("urllib.request.build_opener", return_value=opener):
-                if quant.upper() != "Q4_K_M" or finish != "stop":
+                if quant.upper() != "Q4_K_M" or finish != "stop" or "alimentation" not in text:
                     with self.assertRaises(SystemExit): configure.main()
                     self.assertEqual(config.read_text(), previous)
                 else:
@@ -48,3 +48,8 @@ class ConfigureTests(unittest.TestCase):
     def test_lowercase_quantization(self): self.run_configure(quant="q4_k_m")
     def test_wrong_quantization_keeps_configuration(self): self.run_configure(quant="Q2_K")
     def test_truncated_response_keeps_configuration(self): self.run_configure(finish="length")
+
+    def test_english_answer_keeps_configuration(self):
+        self.run_configure(text="Okay, I understand. I will disconnect the power supply before servicing.\n<|im_end|>")
+    def test_french_answer_with_control_token(self):
+        self.run_configure(text="Débranchez l’alimentation avant toute maintenance.\n<|file_separator|>")
