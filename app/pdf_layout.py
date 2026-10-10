@@ -5,6 +5,7 @@ This is a visual export, not restoration of the source's editable vector text.
 """
 import json
 import re
+from statistics import median
 from collections import Counter
 import subprocess
 import tempfile
@@ -17,6 +18,22 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from .terminology import preserved_name, reference_label, DEFAULT_TERMS
+
+
+def estimated_source_size(segment, sx, sy, font):
+    """Estimate point size from source advances, not a label's ink height alone.
+
+    Image PDFs have no recoverable font metadata. A short word with tall
+    capitals/descenders must not acquire a larger size than nearby body text.
+    """
+    estimates = []
+    for line in segment.get('lines') or [segment]:
+        text = line.get('text', '')
+        box = line['box']
+        advance = pdfmetrics.stringWidth(text, font, 1)
+        if advance > 0 and len(text.strip()) >= 4:
+            estimates.append(min((box[2]-box[0])*sx/advance, (box[3]-box[1])*sy/.55))
+    return median(estimates) if estimates else (segment['box'][3]-segment['box'][1])*sy/.95
 
 
 def export_pdf(original, targets, segments, destination):
@@ -44,6 +61,7 @@ def export_pdf(original, targets, segments, destination):
     if not bold_path.is_file(): bold_font = font
     regular_font = font
     report = {'mode': 'page_background_with_text_overlay', 'pages': len(reader.pages),
+              'typography': 'estimated_from_raster_source',
               'human_review_required': True, 'warnings': []}
     destination = Path(destination)
     pending = destination.with_suffix('.pending.pdf')
@@ -94,6 +112,11 @@ def export_pdf(original, targets, segments, destination):
                         continue
                     if not target.strip():
                         raise ValueError('Traduction PDF vide')
+                    if segment.get('list_marker'):
+                        # The original bullet remains an image. Never draw the
+                        # punctuation a model invents in its place a second time.
+                        target = re.sub(r'^[\s•●▪*~–—»«=−-]+', '', target)
+                        if not target.strip(): raise ValueError('Traduction PDF vide')
                     # Average line confidence avoids rejecting a whole paragraph for one word.
                     if segment.get('confidence', 1) < .65:
                         report['warnings'].append({'segment': index, 'page': page_number,
@@ -157,7 +180,7 @@ def export_pdf(original, targets, segments, destination):
                         # through neighbouring artwork merely to fit more prose.
                         available_width = cell_width or (x1-x0)*sx
                         line_height = max(line['box'][3]-line['box'][1] for line in source_lines)*sy
-                        size = line_height/.95
+                        size = min(line_height/.95, estimated_source_size(segment, sx, sy, font))
                         def wrap(text, font_size):
                             output, current = [], ''
                             for word in text.split():
@@ -196,7 +219,7 @@ def export_pdf(original, targets, segments, destination):
                             pdf.drawString(x, baseline, line)
                             baseline -= leading
                         continue
-                    size = available_height / .95
+                    size = min(available_height / .95, estimated_source_size(segment, sx, sy, font))
                     measured = pdfmetrics.stringWidth(target, font, size)
                     if measured > available_width:
                         size *= available_width / measured

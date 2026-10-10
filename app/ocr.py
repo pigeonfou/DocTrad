@@ -103,7 +103,7 @@ def recognize(image):
         key = (*key, part)
         # An uncertain bullet must not make all the words in its line unusable.
         confidence = float(row['conf'])/100 if any(c.isalnum() for c in row['text']) else 1.0
-        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":confidence,"ocr_group":list(key[:2]),"cell_part":part,"confidence_weight":max(1,len(row["text"])),"minimum_confidence":confidence}
+        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":confidence,"ocr_group":list(key[:2]),"cell_part":part,"confidence_weight":max(1,len(row["text"])),"minimum_confidence":confidence,"words":[]}
         else:
             line = lines[key]
             weight = max(1, len(row['text']))
@@ -115,13 +115,59 @@ def recognize(image):
             line['box']=[min(line['box'][0],box[0]),min(line['box'][1],box[1]),max(line['box'][2],box[2]),max(line['box'][3],box[3])]
         # Stable physical cells, unlike Tesseract's per-line "part" counter.
         line = lines[key]
+        line['words'].append({'text': row['text'], 'box': box})
         a,b,c,d = line['box']
         column = bisect.bisect_right(active_rules, (a+c)/2)
         above = [y for y in horizontal_rules if y < b]
         below = [y for y in horizontal_rules if y > d]
         if 0 < column < len(active_rules) and above and below:
             line['table_cell'] = [active_rules[column-1], above[-1], active_rules[column], below[0]]
-    return list(lines.values())
+    output = list(lines.values())
+    separate_list_markers(output, grey)
+    return output
+
+
+def separate_list_markers(lines, grey):
+    """Keep table bullets in the background, outside translated ink boxes.
+
+    Tesseract often reads a small coloured square as ~, =, « or *. Only
+    consider a prefix next to a detected cell's left edge, never prose/math
+    punctuation elsewhere on a line. Retain its position for list grouping.
+    """
+    markers = '•●▪*~–—»«=−-'
+    for line in lines:
+        words = line.pop('words', [])
+        cell = line.get('table_cell')
+        if len(words) < 1 or not cell:
+            continue
+        first = words[0]
+        token = first['text']
+        a,b,c,d = first['box']
+        if not token or token[0] not in markers or a-cell[0] > max(1,line['box'][3]-line['box'][1])*1.5:
+            continue
+        if token in markers and len(words) > 1:
+            marker_box = first['box']
+            remaining = words[1:]
+        elif len(token) > 1 and token[1].isalnum():
+            # A bullet can be glued to the first word (e.g. ~Chat). Locate
+            # the actual blank column after its first ink component.
+            background = grey.crop((a,b,c,d)).getextrema()[1]
+            columns = [any(abs(grey.getpixel((x,y))-background) > 40
+                           for y in range(b,d)) for x in range(a,c)]
+            start = next((i for i, ink in enumerate(columns) if ink), None)
+            if start is None: continue
+            stop = next((i for i in range(start+1,len(columns)) if not columns[i]), None)
+            if stop is None or stop > (d-b)*1.2: continue
+            next_ink = next((i for i in range(stop,len(columns)) if columns[i]), None)
+            if next_ink is None: continue
+            marker_box = [a,b,a+stop,d]
+            remaining = [dict(first, text=token[1:], box=[a+next_ink,b,c,d]), *words[1:]]
+        else:
+            continue
+        line['list_marker'] = marker_box
+        line['text'] = ' '.join(w['text'] for w in remaining)
+        line['box'] = [min(w['box'][0] for w in remaining), min(w['box'][1] for w in remaining),
+                       max(w['box'][2] for w in remaining), max(w['box'][3] for w in remaining)]
 
 
 def paddle(image):
@@ -174,7 +220,7 @@ def paragraphs(lines):
         cell = line.get('table_cell')
         return (line.get('page') or 0, cell[1] if cell else box[1],
                 cell[0] if cell else 0, box[1], index)
-    ordered = sorted(enumerate(lines), key=reading_order)
+    ordered = sorted(enumerate(join_label_fragments(lines)), key=reading_order)
     for _, line in ordered:
         previous = result[-1] if result else None
         box = line.get('box')
@@ -191,7 +237,8 @@ def paragraphs(lines):
                      and abs(box[0]-old[0]) <= max(h, old_h)
                      and 0 <= box[1]-old[3] <= max(h, old_h)*1.2
                      and min(h, old_h)/max(h, old_h) >= .7
-                     and not re.match(r'^[•●▪*–—»«-]\s*|^\d+[.)]\s', line['text'])
+                     and not line.get('list_marker')
+                     and not re.match(r'^[•●▪*~–—»«=−-]\s*|^\d+[.)]\s', line['text'])
                      and not last['text'].rstrip().endswith(':')
                      and not re.match(r'^[A-Z][^:]{0,65}:', line['text']))
         if merge:
@@ -208,4 +255,33 @@ def paragraphs(lines):
         else:
             result.append(dict(line))
     return result
+
+
+def join_label_fragments(lines):
+    """Repair only complete known labels, never guess a truncated word.
+
+    E.g. adjacent OCR boxes 'Capa.' and 'bility' must become one heading,
+    with a full ink box so its untranslated tail is also masked on export.
+    """
+    from .terminology import DEFAULT_TERMS
+    normalized = lambda text: re.sub(r'[^a-z0-9]', '', text.casefold())
+    known = {normalized(label): label for label in DEFAULT_TERMS if len(label) <= 65}
+    output = []
+    for source in sorted(lines, key=lambda s: (s.get('page') or 0, s.get('box', [0,0])[1], s.get('box', [0])[0])):
+        line = dict(source)
+        if line.get('table_cell'):
+            line['text'] = known.get(normalized(line['text']), line['text'])
+        previous = output[-1] if output else None
+        if previous and line.get('table_cell') and line['table_cell'] == previous.get('table_cell'):
+            a,b,c,d = previous['box']; e,f,g,h = line['box']
+            label = known.get(normalized(previous['text'] + line['text']))
+            if (label and line.get('page') == previous.get('page')
+                    and min(d,h)-max(b,f) >= min(d-b,h-f)*.7
+                    and 0 <= e-c <= max(d-b,h-f)*1.2):
+                previous['text'] = label
+                previous['box'] = [a,min(b,f),g,max(d,h)]
+                previous['confidence'] = min(previous['confidence'],line['confidence'])
+                continue
+        output.append(line)
+    return output
 
