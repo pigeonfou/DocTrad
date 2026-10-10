@@ -124,7 +124,51 @@ def recognize(image):
             line['table_cell'] = [active_rules[column-1], above[-1], active_rules[column], below[0]]
     output = list(lines.values())
     separate_list_markers(output, grey)
+    recover_truncated_labels(output, grey)
     return output
+
+
+def recover_truncated_labels(lines, grey):
+    """Re-read a short known-label prefix in its cell; accept only full OCR text."""
+    from .terminology import DEFAULT_TERMS
+    normalize = lambda text: re.sub(r'[^a-z0-9]', '', text.casefold())
+    labels = {normalize(label): label for label in DEFAULT_TERMS if len(label) <= 65}
+    candidates = []
+    for line in lines:
+        text = normalize(line['text'])
+        cell = line.get('table_cell')
+        matches = [key for key in labels if key.startswith(text) and key != text]
+        if cell and 4 <= len(text) <= 12 and matches and len(line['text'].split()) == 1:
+            candidates.append((line, matches))
+    if not candidates: return
+    with tempfile.TemporaryDirectory(prefix='doctrad-label-') as temp:
+        path = Path(temp)/'label.png'
+        for line, matches in candidates[:20]:
+            a,b,c,d = line['box']; cell = line['table_cell']
+            right = cell[2]-3
+            for other in lines:
+                box = other['box']
+                if other is not line and box[0] >= c and box[1] < d and box[3] > b:
+                    right = min(right,box[0]-2)
+            crop = [max(cell[0]+2,a-4),max(cell[1]+2,b-6),right,min(cell[3]-2,d+6)]
+            if crop[2] <= crop[0] or crop[3] <= crop[1]: continue
+            grey.crop(crop).save(path)
+            try:
+                result = subprocess.run(['tesseract',str(path),'stdout','-l','eng','--psm','7','tsv'],
+                                        capture_output=True,text=True,timeout=30,check=True)
+            except (subprocess.SubprocessError, OSError):
+                continue  # Optional refinement must not abort document analysis.
+            words = [w for w in csv.DictReader(result.stdout.splitlines(),delimiter='\t')
+                     if w.get('text','').strip() and float(w['conf']) >= 0]
+            text = ' '.join(w['text'] for w in words)
+            if normalize(text) not in matches: continue
+            line['text'] = labels[normalize(text)]
+            line['box'] = [crop[0]+min(int(w['left']) for w in words),
+                           crop[1]+min(int(w['top']) for w in words),
+                           crop[0]+max(int(w['left'])+int(w['width']) for w in words),
+                           crop[1]+max(int(w['top'])+int(w['height']) for w in words)]
+            line['confidence'] = sum(float(w['conf']) for w in words)/(100*len(words))
+            line['minimum_confidence'] = min(float(w['conf']) for w in words)/100
 
 
 def separate_list_markers(lines, grey):
@@ -134,7 +178,7 @@ def separate_list_markers(lines, grey):
     consider a prefix next to a detected cell's left edge, never prose/math
     punctuation elsewhere on a line. Retain its position for list grouping.
     """
-    markers = '•●▪*~–—»«=−-'
+    markers = '•●▪*~–—»«=−-+'
     for line in lines:
         words = line.pop('words', [])
         cell = line.get('table_cell')
@@ -143,6 +187,22 @@ def separate_list_markers(lines, grey):
         first = words[0]
         token = first['text']
         a,b,c,d = first['box']
+        if token and token[0] not in markers:
+            # Some bullets are not recognized as words at all. Detect a small
+            # isolated ink component in the cell gutter so the next item is
+            # never merged into the preceding product reference.
+            left,right = cell[0]+4,a-3
+            height = line['box'][3]-line['box'][1]
+            if 2 <= right-left <= height*2:
+                patch = grey.crop((left,b,right,d))
+                background = patch.getextrema()[1]
+                points = [(x,y) for x in range(left,right) for y in range(b,d)
+                          if abs(grey.getpixel((x,y))-background) > 45]
+                if len(points) >= 4:
+                    xs,ys = zip(*points)
+                    if max(xs)-min(xs) <= height*.65 and max(ys)-min(ys) <= height*.65:
+                        line['list_marker'] = [min(xs),min(ys),max(xs)+1,max(ys)+1]
+            continue
         if not token or token[0] not in markers or a-cell[0] > max(1,line['box'][3]-line['box'][1])*1.5:
             continue
         if token in markers and len(words) > 1:

@@ -36,6 +36,51 @@ def estimated_source_size(segment, sx, sy, font):
     return median(estimates) if estimates else (segment['box'][3]-segment['box'][1])*sy/.95
 
 
+def heading(segment):
+    text = segment.get('text', '')
+    letters = ''.join(c for c in text if c.isalpha())
+    return ((len(letters) >= 4 and letters.isupper())
+            or (text.strip() in DEFAULT_TERMS and len(text) <= 65))
+
+
+def page_typography(segments, page, sx, sy, regular, bold):
+    """Share source size estimates across nearby sizes in the same text role."""
+    roles = {}
+    for index, segment in enumerate(segments):
+        if segment.get('page') != page or segment.get('confidence',1) < .65: continue
+        if preserved_name(segment.get('text','')): continue
+        cell = segment.get('table_cell')
+        role = ('table' if cell else 'body', heading(segment))
+        size = estimated_source_size(segment,sx,sy,bold if role[1] else regular)
+        if 5 <= size <= 48: roles.setdefault(role,[]).append((size,index))
+    sizes = {}
+    for entries in roles.values():
+        clusters = []
+        for size,index in sorted(entries):
+            if not clusters or size > clusters[-1][0][0]*1.12:
+                clusters.append([])
+            clusters[-1].append((size,index))
+        for cluster in clusters:
+            common = median(size for size,_ in cluster)
+            for _,index in cluster: sizes[index] = common
+    return sizes
+
+
+def content_right(segments, page, image_width):
+    """Infer a content margin from wide paragraphs and table borders."""
+    rights = []
+    for segment in segments:
+        if segment.get('page') != page: continue
+        box = segment.get('box')
+        if not box: continue
+        cell = segment.get('table_cell')
+        if cell: rights.append(cell[2])
+        elif (segment.get('lines') and box[0] < image_width*.25
+              and box[2]-box[0] > image_width*.5 and box[2] < image_width*.97):
+            rights.append(box[2])
+    return min(image_width-2,max(rights)) if rights else image_width-2
+
+
 def export_pdf(original, targets, segments, destination):
     if len(targets) != len(segments):
         raise ValueError('Nombre de segments PDF incohérent ; réanalyser le document')
@@ -82,6 +127,8 @@ def export_pdf(original, targets, segments, destination):
                 pdf.setPageSize((width, height))
                 pdf.drawImage(ImageReader(image), 0, 0, width=width, height=height)
                 sx, sy = width / image.width, height / image.height
+                source_sizes = page_typography(segments,page_number,sx,sy,regular_font,bold_font)
+                right_margin = content_right(segments,page_number,image.width)
                 for index, (target, segment) in enumerate(zip(targets, segments)):
                     if segment.get('page') != page_number:
                         continue
@@ -91,9 +138,7 @@ def export_pdf(original, targets, segments, destination):
                     if segment.get('image_size') and list(image.size) != segment['image_size']:
                         raise ValueError('Dimensions OCR différentes du rendu PDF')
                     source_text = segment.get('text', '')
-                    letters = ''.join(c for c in source_text if c.isalpha())
-                    is_heading = ((len(letters) >= 4 and letters.isupper())
-                                  or (source_text.strip() in DEFAULT_TERMS and len(source_text) <= 65))
+                    is_heading = heading(segment)
                     font = bold_font if is_heading else regular_font
                     if target == source_text:
                         if (re.search(r'[A-Za-z]{3,}', source_text)
@@ -101,7 +146,6 @@ def export_pdf(original, targets, segments, destination):
                                 and not reference_label(source_text, {})):
                             report['warnings'].append({'segment': index, 'page': page_number,
                                 'reason': 'Texte identique à la source : vérifier la traduction'})
-                        continue
                     if preserved_name(segment.get('text', '')):
                         # A logo is artwork, including lettering misread by OCR.
                         continue
@@ -153,7 +197,7 @@ def export_pdf(original, targets, segments, destination):
                     available_width, available_height = (x1-x0)*sx, (y1-y0)*sy
                     # A short label may use blank space inside its cell. Stop at
                     # a neighbouring text box or any visible border/illustration.
-                    limit = image.width-2
+                    limit = max(x1, right_margin)
                     for neighbour in segments:
                         other = neighbour.get('box')
                         if neighbour.get('page') == page_number and other and other[0] > x1 and other[1] < y1 and other[3] > y0:
@@ -180,7 +224,7 @@ def export_pdf(original, targets, segments, destination):
                         # through neighbouring artwork merely to fit more prose.
                         available_width = cell_width or (x1-x0)*sx
                         line_height = max(line['box'][3]-line['box'][1] for line in source_lines)*sy
-                        size = min(line_height/.95, estimated_source_size(segment, sx, sy, font))
+                        size = min(line_height/.95, source_sizes.get(index, estimated_source_size(segment, sx, sy, font)))
                         def wrap(text, font_size):
                             output, current = [], ''
                             for word in text.split():
@@ -219,7 +263,7 @@ def export_pdf(original, targets, segments, destination):
                             pdf.drawString(x, baseline, line)
                             baseline -= leading
                         continue
-                    size = min(available_height / .95, estimated_source_size(segment, sx, sy, font))
+                    size = min(available_height / .95, source_sizes.get(index, estimated_source_size(segment, sx, sy, font)))
                     measured = pdfmetrics.stringWidth(target, font, size)
                     if measured > available_width:
                         size *= available_width / measured

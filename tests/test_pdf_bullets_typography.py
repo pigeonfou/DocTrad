@@ -10,6 +10,15 @@ from app.pdf_layout import export_pdf, estimated_source_size
 
 
 class BulletsAndTypography(unittest.TestCase):
+    def test_unrecognized_bullet_still_separates_list_items(self):
+        grey=Image.new('L',(200,100),255)
+        ImageDraw.Draw(grey).rectangle((12,17,17,22),fill=100)
+        line=dict(text='Ultra ORION X510',box=[25,10,180,30],table_cell=[0,0,190,90],
+                  words=[dict(text='Ultra',box=[25,10,65,30]),dict(text='ORION X510',box=[70,10,180,30])])
+        separate_list_markers([line],grey)
+        self.assertIn('list_marker',line)
+        self.assertEqual(line['text'],'Ultra ORION X510')
+
     def test_complete_heading_fragments_join_without_guessing_capa(self):
         cell=[0,0,200,50]
         a=dict(text='Capa.',box=[10,10,50,30],table_cell=cell,confidence=.9,page=1)
