@@ -103,9 +103,15 @@ def recognize(image):
         key = (*key, part)
         # An uncertain bullet must not make all the words in its line unusable.
         confidence = float(row['conf'])/100 if any(c.isalnum() for c in row['text']) else 1.0
-        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":confidence,"ocr_group":list(key[:2]),"cell_part":part}
+        if key not in lines: lines[key] = {"text":row['text'],"box":box,"confidence":confidence,"ocr_group":list(key[:2]),"cell_part":part,"confidence_weight":max(1,len(row["text"])),"minimum_confidence":confidence}
         else:
-            line = lines[key];line['text'] += ' '+row['text'];line['confidence']=min(line['confidence'],confidence)
+            line = lines[key]
+            weight = max(1, len(row['text']))
+            old_weight = line['confidence_weight']
+            line['confidence'] = (line['confidence']*old_weight + confidence*weight)/(old_weight+weight)
+            line['confidence_weight'] += weight
+            line['minimum_confidence'] = min(line['minimum_confidence'], confidence)
+            line['text'] += ' '+row['text']
             line['box']=[min(line['box'][0],box[0]),min(line['box'][1],box[1]),max(line['box'][2],box[2]),max(line['box'][3],box[3])]
         # Stable physical cells, unlike Tesseract's per-line "part" counter.
         line = lines[key]
@@ -192,10 +198,14 @@ def paragraphs(lines):
             if 'lines' not in previous:
                 previous['lines'] = [dict(previous)]
             previous['lines'].append(dict(line))
+            old_weight = max(1, len(previous['text']))
+            weight = max(1, len(line['text']))
+            previous['confidence'] = (previous['confidence']*old_weight + line['confidence']*weight)/(old_weight+weight)
+            previous['minimum_confidence'] = min(previous.get('minimum_confidence', 1), line.get('minimum_confidence', line['confidence']))
             previous['text'] += ' ' + line['text']
-            previous['confidence'] = min(previous['confidence'], line['confidence'])
             previous['box'] = [min(previous['box'][0], box[0]), previous['box'][1],
                                max(previous['box'][2], box[2]), box[3]]
         else:
             result.append(dict(line))
     return result
+

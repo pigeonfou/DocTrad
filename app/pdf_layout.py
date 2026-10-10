@@ -4,6 +4,7 @@ OCR coordinates are in the 2500-pixel Poppler rendering used at analysis time.
 This is a visual export, not restoration of the source's editable vector text.
 """
 import json
+import re
 from collections import Counter
 import subprocess
 import tempfile
@@ -15,7 +16,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from .terminology import preserved_name
+from .terminology import preserved_name, reference_label, DEFAULT_TERMS
 
 
 def export_pdf(original, targets, segments, destination):
@@ -36,6 +37,12 @@ def export_pdf(original, targets, segments, destination):
     font = 'DocTradDejaVu'
     if font not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(TTFont(font, str(font_path)))
+    bold_path = font_path.with_name('DejaVuSans-Bold.ttf')
+    bold_font = 'DocTradDejaVuBold'
+    if bold_path.is_file() and bold_font not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont(bold_font, str(bold_path)))
+    if not bold_path.is_file(): bold_font = font
+    regular_font = font
     report = {'mode': 'page_background_with_text_overlay', 'pages': len(reader.pages),
               'human_review_required': True, 'warnings': []}
     destination = Path(destination)
@@ -65,7 +72,17 @@ def export_pdf(original, targets, segments, destination):
                         raise ValueError('Coordonnées PDF absentes ; réanalyser le document')
                     if segment.get('image_size') and list(image.size) != segment['image_size']:
                         raise ValueError('Dimensions OCR différentes du rendu PDF')
-                    if target == segment.get('text'):
+                    source_text = segment.get('text', '')
+                    letters = ''.join(c for c in source_text if c.isalpha())
+                    is_heading = ((len(letters) >= 4 and letters.isupper())
+                                  or (source_text.strip() in DEFAULT_TERMS and len(source_text) <= 65))
+                    font = bold_font if is_heading else regular_font
+                    if target == source_text:
+                        if (re.search(r'[A-Za-z]{3,}', source_text)
+                                and not preserved_name(source_text)
+                                and not reference_label(source_text, {})):
+                            report['warnings'].append({'segment': index, 'page': page_number,
+                                'reason': 'Texte identique à la source : vérifier la traduction'})
                         continue
                     if preserved_name(segment.get('text', '')):
                         # A logo is artwork, including lettering misread by OCR.
@@ -77,7 +94,7 @@ def export_pdf(original, targets, segments, destination):
                         continue
                     if not target.strip():
                         raise ValueError('Traduction PDF vide')
-                    # Leave uncertain logos/graphic OCR untouched for human review.
+                    # Average line confidence avoids rejecting a whole paragraph for one word.
                     if segment.get('confidence', 1) < .65:
                         report['warnings'].append({'segment': index, 'page': page_number,
                             'reason': 'OCR très incertain : zone originale conservée'})
@@ -127,11 +144,18 @@ def export_pdf(original, targets, segments, destination):
                             break
                         end = column-2
                     available_width = max(available_width, (end-x0)*sx)
+                    cell = segment.get('table_cell')
+                    cell_width = None
+                    if cell and len(cell) == 4 and cell[0] <= x0 < x1 <= cell[2]:
+                        # Use cell whitespace, stopping before the border and any
+                        # adjacent segment at the same vertical position.
+                        cell_width = max((x1-x0)*sx, (min(cell[2]-5, limit, end)-x0)*sx)
+                        available_width = min(available_width, cell_width)
                     source_lines = segment.get('lines', [])
                     if source_lines:
                         # Use the original cell/paragraph width, without extending
                         # through neighbouring artwork merely to fit more prose.
-                        available_width = (x1-x0)*sx
+                        available_width = cell_width or (x1-x0)*sx
                         line_height = max(line['box'][3]-line['box'][1] for line in source_lines)*sy
                         size = line_height/.95
                         def wrap(text, font_size):
@@ -199,4 +223,5 @@ def export_pdf(original, targets, segments, destination):
     finally:
         pending.unlink(missing_ok=True)
     return report
+
 

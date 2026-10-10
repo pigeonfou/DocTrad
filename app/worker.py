@@ -69,6 +69,8 @@ def run_job(job_id):
                         translated = response.json()["texts"][0]
                 warnings = list(dict.fromkeys(check(text, translated) + audit_translation(text, translated)))
                 if items[i]["confidence"] < 0.85: warnings.append("OCR incertain : vérification nécessaire")
+                if items[i].get("minimum_confidence", 1) < .50:
+                    warnings.append("Mot OCR incertain : vérifier le texte source")
                 s.add(Segment(job_id=job.id, position=i, source=text, machine=translated, target=translated, warnings=warnings, metadata_json={k:v for k,v in items[i].items() if k != "text"}))
                 targets.append(translated)
                 record(job_id, "segment_done", segment=i + 1, seconds=round(time.monotonic() - segment_started, 2))

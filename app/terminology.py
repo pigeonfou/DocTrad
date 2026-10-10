@@ -21,6 +21,8 @@ DEFAULT_TERMS = {
     "Technical Features": "Caractéristiques techniques",
     "Features": "Caractéristiques",
     "Capability": "Capacités",
+    "Capabilities": "Capacités",
+    "Technology Readiness Level": "niveau de maturité technologique",
     "Frequencies": "Fréquences",
     "Security": "Sécurité",
     "Modulation": "Modulation",
@@ -54,7 +56,13 @@ def preserved_name(text):
     """Recognize standalone marks even when OCR inserts spaces in a logo."""
     import re
     normalized = re.sub(r'\W+', '', text).casefold()
-    return any(normalized == re.sub(r'\W+', '', name).casefold() for name in PROTECTED_NAMES)
+    if any(normalized == re.sub(r'\W+', '', name).casefold() for name in PROTECTED_NAMES):
+        return True
+    # Only isolated brand lettering, never a prose sentence or product list.
+    from difflib import SequenceMatcher
+    return (8 <= len(normalized) <= 13
+            and normalized.startswith('trel') and normalized.endswith('ware')
+            and SequenceMatcher(None, normalized, 'trellisware').ratio() >= .80)
 
 
 def reference_label(text, terms):
@@ -156,6 +164,8 @@ def correct_network_terms(source, target):
     if (re.match(r'^Multi-vendor Ecosystem\s*[-–—]+', source)
             and re.match(r'^En tant que\b', target)):
         target = 'Écosystème multifournisseur — ' + target
+    if re.search(r'\bTRL\b', source):
+        target = re.sub(r'\bTMT\b', 'TRL', target)
     if 'Technology Readiness Level' in source:
         target = re.sub(r'niveau de préparation technologique', 'niveau de maturité technologique', target, flags=re.I)
     if re.search(r'program of record tactical radios', source, re.I):
