@@ -7,17 +7,29 @@ import json
 import re
 from statistics import median
 from collections import Counter
+from functools import lru_cache
 import subprocess
 import tempfile
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFont
 from pypdf import PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from .terminology import preserved_name, reference_label, DEFAULT_TERMS
+
+
+@lru_cache(maxsize=4)
+def ink_font(font):
+    return ImageFont.truetype(str(pdfmetrics.getFont(font).face.filename), 1000)
+
+
+def ink_metrics(text, font, size):
+    """Visible glyph bounds, unlike the font's full ascender/descender box."""
+    _, top, _, bottom = ink_font(font).getbbox(text, anchor='ls')
+    return -top*size/1000, bottom*size/1000
 
 
 def estimated_source_size(segment, sx, sy, font):
@@ -33,7 +45,7 @@ def estimated_source_size(segment, sx, sy, font):
         advance = pdfmetrics.stringWidth(text, font, 1)
         if advance > 0 and len(text.strip()) >= 4:
             estimates.append(min((box[2]-box[0])*sx/advance, (box[3]-box[1])*sy/.55))
-    return median(estimates) if estimates else (segment['box'][3]-segment['box'][1])*sy/.95
+    return median(estimates) if estimates else (segment['box'][3]-segment['box'][1])*sy/.76
 
 
 def heading(segment):
@@ -198,16 +210,20 @@ def export_pdf(original, targets, segments, destination):
                     # A short label may use blank space inside its cell. Stop at
                     # a neighbouring text box or any visible border/illustration.
                     limit = max(x1, right_margin)
+                    # In a ruled table, adjacent rows already define spacing;
+                    # probing their ink would wrongly block cell whitespace.
+                    clearance = 2 if segment.get('table_cell') else max(6, round(6/sy))
+                    band_top, band_bottom = max(0,y0-clearance), min(image.height,y1+clearance)
                     for neighbour in segments:
                         other = neighbour.get('box')
-                        if neighbour.get('page') == page_number and other and other[0] > x1 and other[1] < y1 and other[3] > y0:
-                            limit = min(limit, int(other[0])-4)
+                        if neighbour.get('page') == page_number and other and other[0] > x1 and other[1] < band_bottom and other[3] > band_top:
+                            limit = min(limit, int(other[0])-clearance)
                     pixels = image.load()
                     end = x1
                     for column in range(x1+3, limit):
                         contrasting = sum(max(abs(a-b) for a,b in zip(pixels[column, row], background)) > 30
-                                          for row in range(y0, y1))
-                        if contrasting > (y1-y0)*.2:
+                                          for row in range(band_top, band_bottom))
+                        if contrasting > max(2,(band_bottom-band_top)*.1):
                             break
                         end = column-2
                     available_width = max(available_width, (end-x0)*sx)
@@ -220,27 +236,31 @@ def export_pdf(original, targets, segments, destination):
                         available_width = min(available_width, cell_width)
                     source_lines = segment.get('lines', [])
                     if source_lines:
-                        # Use the original cell/paragraph width, without extending
-                        # through neighbouring artwork merely to fit more prose.
-                        available_width = cell_width or (x1-x0)*sx
-                        line_height = max(line['box'][3]-line['box'][1] for line in source_lines)*sy
-                        size = min(line_height/.95, source_sizes.get(index, estimated_source_size(segment, sx, sy, font)))
-                        def wrap(text, font_size):
+                        # Use only whitespace verified across the entire block
+                        # and its clearance band, never space across artwork.
+                        size = source_sizes.get(index, estimated_source_size(segment, sx, sy, font))
+                        def wrap(text, font_size, horizontal_scale=1):
                             output, current = [], ''
                             for word in text.split():
                                 candidate = (current + ' ' + word).strip()
-                                if current and pdfmetrics.stringWidth(candidate, font, font_size) > available_width:
+                                if current and pdfmetrics.stringWidth(candidate, font, font_size)*horizontal_scale > available_width:
                                     output.append(current); current = word
                                 else:
                                     current = candidate
                             if current: output.append(current)
                             return output
                         while size >= 5:
-                            wrapped = wrap(target, size)
-                            ascent, descent = pdfmetrics.getAscentDescent(font, size)
                             leading = size*1.18
-                            if ((len(wrapped)-1)*leading + ascent-descent <= available_height
-                                and all(pdfmetrics.stringWidth(line, font, size) <= available_width for line in wrapped)):
+                            fits = False
+                            for horizontal_scale in (1, .95, .9, .85, .8):
+                                wrapped = wrap(target, size, horizontal_scale)
+                                ascent = max(ink_metrics(line,font,size)[0] for line in wrapped)
+                                descent = max(ink_metrics(line,font,size)[1] for line in wrapped)
+                                if ((len(wrapped)-1)*leading + ascent+descent <= available_height
+                                    and all(pdfmetrics.stringWidth(line, font, size)*horizontal_scale <= available_width for line in wrapped)):
+                                    fits = True
+                                    break
+                            if fits:
                                 break
                             size -= .25
                         if size < 5:
@@ -250,6 +270,10 @@ def export_pdf(original, targets, segments, destination):
                         if size < 7:
                             report['warnings'].append({'segment': index, 'page': page_number,
                                 'reason': 'Police réduite : lisibilité à vérifier', 'font_size': round(size, 2)})
+                        if horizontal_scale < 1:
+                            report['warnings'].append({'segment': index, 'page': page_number,
+                                'reason': 'Texte légèrement condensé pour conserver la taille de police',
+                                'horizontal_scale': horizontal_scale})
                         pdf.setFillColorRGB(*(value/255 for value in background))
                         for line in source_lines:
                             a,b,c,d = line['box']
@@ -260,10 +284,19 @@ def export_pdf(original, targets, segments, destination):
                         pdf.setFont(font, size)
                         baseline = height-y0*sy-ascent
                         for line in wrapped:
-                            pdf.drawString(x, baseline, line)
+                            text_object = pdf.beginText(x, baseline)
+                            text_object.setFont(font,size)
+                            text_object.setHorizScale(horizontal_scale*100)
+                            text_object.textOut(line)
+                            pdf.drawText(text_object)
                             baseline -= leading
                         continue
-                    size = min(available_height / .95, source_sizes.get(index, estimated_source_size(segment, sx, sy, font)))
+                    size = source_sizes.get(index, estimated_source_size(segment, sx, sy, font))
+                    ink_ascent, ink_descent = ink_metrics(target,font,size)
+                    # The masking box includes two pixels of antialiasing on
+                    # either side. Accented translations can use that same area.
+                    if ink_ascent+ink_descent > available_height+4*sy:
+                        size *= (available_height+4*sy)/(ink_ascent+ink_descent)
                     measured = pdfmetrics.stringWidth(target, font, size)
                     if measured > available_width:
                         size *= available_width / measured
@@ -279,8 +312,8 @@ def export_pdf(original, targets, segments, destination):
                              (mask[2]-mask[0])*sx, (mask[3]-mask[1])*sy, stroke=0, fill=1)
                     pdf.setFillColorRGB(*(value/255 for value in foreground))
                     pdf.setFont(font, size)
-                    ascent, descent = pdfmetrics.getAscentDescent(font, size)
-                    baseline = y + (available_height-(ascent-descent))/2-descent
+                    ascent, descent = ink_metrics(target,font,size)
+                    baseline = y + (available_height-(ascent+descent))/2+descent
                     pdf.drawString(x, baseline, target)
                 pdf.showPage()
                 image.close()

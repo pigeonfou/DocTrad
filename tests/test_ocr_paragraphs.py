@@ -45,3 +45,11 @@ def test_same_cell_can_continue_across_ocr_paragraph_ids_but_not_row_border():
     source[0]['table_cell'] = source[1]['table_cell'] = [200,0,480,60]
     source[2]['table_cell'] = [200,60,480,100]
     assert [g['text'] for g in paragraphs(source)] == ['Works as a black relay for the network.', 'New row']
+
+
+
+def test_lowercase_continuation_near_artwork_survives_split_ocr_blocks():
+    source = [line('Ease of Use: Web App and Android integration', [10,10,300,30],group=(1,1)),
+              line('all lead to ease of use for end users.', [10,35,280,55],group=(2,1))]
+    assert len(paragraphs(source)) == 1
+    assert len(paragraphs(source)[0]['lines']) == 2

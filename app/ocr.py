@@ -124,8 +124,36 @@ def recognize(image):
             line['table_cell'] = [active_rules[column-1], above[-1], active_rules[column], below[0]]
     output = list(lines.values())
     separate_list_markers(output, grey)
+    recover_uncertain_short_lines(output, grey)
     recover_truncated_labels(output, grey)
     return output
+
+
+def recover_uncertain_short_lines(lines, grey):
+    """Accept a second reading only when it confirms the same short text."""
+    candidates = [line for line in lines if line['confidence'] < .65
+                  and 2 <= len(line['text'].strip()) <= 40]
+    with tempfile.TemporaryDirectory(prefix='doctrad-reread-') as temp:
+        path = Path(temp)/'line.png'
+        for line in candidates[:40]:
+            a,b,c,d = line['box']
+            crop = grey.crop((max(0,a-4),max(0,b-6),min(grey.width,c+6),min(grey.height,d+6)))
+            crop.resize((crop.width*4,crop.height*4)).save(path)
+            try:
+                result = subprocess.run(['tesseract',str(path),'stdout','-l','eng','--psm','7','tsv'],
+                                        capture_output=True,text=True,timeout=30,check=True)
+                words = [w for w in csv.DictReader(result.stdout.splitlines(),delimiter='\t')
+                         if w.get('text','').strip() and float(w['conf']) >= 0]
+                text = ' '.join(w['text'] for w in words)
+                normalize = lambda value: re.sub(r'\s+', '', value).casefold()
+                if not words or normalize(text) != normalize(line['text']): continue
+                confidence = min(float(w['conf']) for w in words)/100
+                if confidence >= .65:
+                    line['confidence'] = confidence
+                    line['minimum_confidence'] = confidence
+                    line['ocr_verified_by_reread'] = True
+            except (subprocess.SubprocessError, OSError, ValueError):
+                continue
 
 
 def recover_truncated_labels(lines, grey):
@@ -292,8 +320,12 @@ def paragraphs(lines):
             same_cell = line.get('table_cell') is not None and line.get('table_cell') == previous.get('table_cell')
             same_paragraph = (line['ocr_group'] == previous.get('ocr_group')
                               and line.get('cell_part') == previous.get('cell_part'))
+            # A nearby QR code may split one prose paragraph into two OCR
+            # blocks. Accept only a lowercase continuation without a marker.
+            continuation = (bool(re.match(r'^[a-z]',line['text']))
+                            and not last['text'].rstrip().endswith(('.',':','!','?')))
             merge = (line.get('page') == previous.get('page')
-                     and (same_cell or (not line.get('table_cell') and not previous.get('table_cell') and same_paragraph))
+                     and (same_cell or (not line.get('table_cell') and not previous.get('table_cell') and (same_paragraph or continuation)))
                      and abs(box[0]-old[0]) <= max(h, old_h)
                      and 0 <= box[1]-old[3] <= max(h, old_h)*1.2
                      and min(h, old_h)/max(h, old_h) >= .7
