@@ -146,14 +146,14 @@ def harmonize_text_draws(draws, segments, source_sizes, labels):
     """Use a shared fitted size for body text with the same source typography.
 
     Never enlarge a fitted paragraph past its verified bounds. Exceptional
-    reductions greater than ten percent stay local instead of shrinking a page.
+    reductions greater than twenty percent stay local instead of shrinking a page.
     """
     groups = {}
     for draw in draws:
         x,y,font,size,text,scale,colour,invisible,index = draw
         source = source_sizes.get(index)
         if invisible or source is None or index in labels or heading(segments[index]): continue
-        if size < source*.9: continue
+        if size < source*.8: continue
         key = (bool(segments[index].get('table_cell')),font,source)
         groups.setdefault(key,[]).append(draw)
     common = {key:min(d[3] for d in values) for key,values in groups.items()}
@@ -161,7 +161,7 @@ def harmonize_text_draws(draws, segments, source_sizes, labels):
     for draw in draws:
         x,y,font,size,text,scale,colour,invisible,index = draw
         key = (bool(segments[index].get('table_cell')),font,source_sizes.get(index))
-        if not invisible and index not in labels and not heading(segments[index]) and key in common and size >= key[2]*.9:
+        if not invisible and index not in labels and not heading(segments[index]) and key in common and size >= key[2]*.8:
             fitted = common[key]
             # Keep the top edge aligned when a baseline's font becomes smaller.
             y += ink_metrics(text,font,size)[0]-ink_metrics(text,font,fitted)[0]
@@ -357,6 +357,8 @@ def export_pdf(original, targets, segments, destination):
                         # or OCR boxes nearly touch the cell's right border.
                         available_width = min(available_width,(cell[2]-x0)*sx-3)
                     source_lines = segment.get('lines', [])
+                    source_size = source_sizes.get(index, estimated_source_size(segment,sx,sy,font))
+                    minimum_size = min(5, max(3.5, source_size*.9))
                     if source_lines:
                         # Use only whitespace verified across the entire block
                         # and its clearance band, never space across artwork.
@@ -389,10 +391,10 @@ def export_pdf(original, targets, segments, destination):
                                     current = candidate
                             if current: output.append(current)
                             return output
-                        while size >= 5:
+                        while size >= minimum_size:
                             leading = size*1.18
                             fits = False
-                            for horizontal_scale in (1, .95, .9, .85, .8):
+                            for horizontal_scale in (1, .95):
                                 wrapped = wrap(target, size, horizontal_scale)
                                 ascent = max(ink_metrics(line,font,size)[0] for line in wrapped)
                                 descent = max(ink_metrics(line,font,size)[1] for line in wrapped)
@@ -403,7 +405,7 @@ def export_pdf(original, targets, segments, destination):
                             if fits:
                                 break
                             size -= .25
-                        if size < 5:
+                        if size < minimum_size:
                             report['warnings'].append({'segment': index, 'page': page_number,
                                 'reason': 'Paragraphe trop long : zone originale conservée'})
                             continue
@@ -437,7 +439,7 @@ def export_pdf(original, targets, segments, destination):
                     measured = pdfmetrics.stringWidth(target, font, size)
                     if measured > available_width:
                         size *= available_width / measured
-                    if size < 5:
+                    if size < minimum_size:
                         report['warnings'].append({'segment': index, 'page': page_number,
                             'reason': 'Traduction trop longue : zone originale conservée'})
                         continue

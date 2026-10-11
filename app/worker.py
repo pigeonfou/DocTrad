@@ -67,6 +67,9 @@ def run_job(job_id):
                             diagnostic["segment"] = i + 1
                             raise InferenceError(diagnostic["code"], diagnostic)
                         translated = response.json()["texts"][0]
+                # Apply deterministic repairs to cached translations as well.
+                from .terminology import correct_network_terms
+                translated = correct_network_terms(text, translated)
                 warnings = list(dict.fromkeys(check(text, translated) + audit_translation(text, translated)))
                 if items[i]["confidence"] < 0.85: warnings.append("OCR incertain : vérification nécessaire")
                 if items[i].get("minimum_confidence", 1) < .50:

@@ -123,10 +123,75 @@ def recognize(image):
         if 0 < column < len(active_rules) and above and below:
             line['table_cell'] = [active_rules[column-1], above[-1], active_rules[column], below[0]]
     output = list(lines.values())
+    recover_legal_small_print(output, grey)
     separate_list_markers(output, grey)
     recover_uncertain_short_lines(output, grey)
     recover_truncated_labels(output, grey)
     return output
+
+
+def recover_legal_small_print(lines, grey):
+    """Re-read dense legal footnotes as one block, preserving their ink boxes.
+
+    A larger crop gives Tesseract the context lost by tiny overlapping lines.
+    Accept only a confident reading substantially agreeing with the original.
+    Contact details in another column are excluded by horizontal overlap.
+    """
+    from difflib import SequenceMatcher
+    seeds = [line for line in lines if line['box'][1] > grey.height*.85
+             and re.search(r'\btrademarks?\b|\bcopyright\b',line['text'],re.I)]
+    if not seeds: return
+    seed = seeds[0]; left,top,right,bottom = seed['box']
+    selected = [line for line in lines
+                if line['box'][1] >= top-grey.height*.02
+                and line['box'][1] <= bottom+grey.height*.04
+                and min(right,line['box'][2])-max(left,line['box'][0])
+                    > min(right-left,line['box'][2]-line['box'][0])*.65]
+    if len(selected) < 2: return
+    a=min(s['box'][0] for s in selected); b=min(s['box'][1] for s in selected)
+    c=max(s['box'][2] for s in selected); d=max(s['box'][3] for s in selected)
+    a,b,c,d=max(0,a-4),max(0,b-4),min(grey.width,c+4),min(grey.height,d+4)
+    with tempfile.TemporaryDirectory(prefix='doctrad-small-print-') as temp:
+        path=Path(temp)/'block.png'
+        crop=grey.crop((a,b,c,d)); crop.resize((crop.width*4,crop.height*4)).save(path)
+        try:
+            result=subprocess.run(['tesseract',str(path),'stdout','-l','eng','--psm','6','tsv'],
+                                  capture_output=True,text=True,check=True,timeout=30)
+            words=[w for w in csv.DictReader(result.stdout.splitlines(),delimiter='\t')
+                   if w.get('text','').strip() and float(w['conf']) >= 0]
+            if not words: return
+            confidence=sum(float(w['conf'])*len(w['text']) for w in words)/(100*sum(len(w['text']) for w in words))
+            text=' '.join(w['text'] for w in words)
+            normalize=lambda value: re.sub(r'\W+','',value).casefold()
+            old=' '.join(s['text'] for s in sorted(selected,key=lambda s:s['box'][1]))
+            if confidence < .80 or SequenceMatcher(None,normalize(old),normalize(text),autojunk=False).ratio() < .85: return
+            grouped={}
+            for w in words:
+                key=(w['block_num'],w['par_num'],w['line_num'])
+                grouped.setdefault(key,[]).append(w)
+            # A document code below the notice is metadata, not legal prose.
+            grouped={key:row for key,row in grouped.items()
+                     if not (len(row) <= 2 and '-' in ' '.join(w['text'] for w in row)
+                             and re.search(r'\d',' '.join(w['text'] for w in row)))}
+            if not grouped: return
+            text=' '.join(w['text'] for row in grouped.values() for w in row)
+            ink=[]
+            for row in grouped.values():
+                boxes=[[a+int(w['left'])//4,b+int(w['top'])//4,
+                        a+(int(w['left'])+int(w['width'])+3)//4,
+                        b+(int(w['top'])+int(w['height'])+3)//4] for w in row]
+                ink.append(dict(text=' '.join(w['text'] for w in row),
+                                box=[min(z[0] for z in boxes),min(z[1] for z in boxes),
+                                     max(z[2] for z in boxes),max(z[3] for z in boxes)]))
+            recovered=dict(seed,text=text,confidence=confidence,minimum_confidence=min(float(w['conf']) for w in words)/100,
+                           box=[min(z['box'][0] for z in ink),min(z['box'][1] for z in ink),
+                                max(z['box'][2] for z in ink),max(z['box'][3] for z in ink)],
+                           lines=ink,ocr_group=['legal-small-print'],ocr_verified_by_reread=True)
+            recovered.pop('words',None)
+            selected_ids={id(s) for s in selected}
+            lines[:]=[s for s in lines if id(s) not in selected_ids]+[recovered]
+        except (subprocess.SubprocessError,OSError,ValueError):
+            return
 
 
 def recover_uncertain_short_lines(lines, grey):

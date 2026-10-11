@@ -146,14 +146,22 @@ def terminology(user_terms=None):
 def correct_network_terms(source, target):
     """Correct observed ambiguous translations only in their source context."""
     import re
+    # Keep a single comparison, including when an older translation memory
+    # already contains both the French wording and the source operator.
+    target = re.sub(r'\bmoins de\s*<\s*(?=\d)', 'moins de ', target, flags=re.I)
+    target = re.sub(r'\bplus de\s*>\s*(?=\d)', 'plus de ', target, flags=re.I)
     for operator, value in re.findall(r'([<>≤≥])\s*(\d+(?:[.,]\d+)?)', source):
         numeric = r'(?<![\w.,])' + re.escape(value.replace(',', '.')).replace(r'\.', '[.,]') + r'(?![\w.,\d])'
         source_values, target_values = list(re.finditer(numeric, source)), list(re.finditer(numeric, target))
         if len(source_values) == len(target_values) == 1:
             anchor = target_values[0]
             prefix = target[:anchor.start()].rstrip()
-            if not prefix.endswith(('<', '>', '≤', '≥')):
+            verbal = ((operator == '<' and re.search(r'\bmoins de$', prefix, re.I))
+                      or (operator == '>' and re.search(r'\bplus de$', prefix, re.I)))
+            if not verbal and not prefix.endswith(('<', '>', '≤', '≥')):
                 target = target[:anchor.start()] + operator + ' ' + target[anchor.start():]
+    if re.search(r'\bfast join and merge\b', source, re.I):
+        target = re.sub(r'^Rejoindre et fusionner rapidement', 'Connexion et fusion rapides des réseaux', target, flags=re.I)
     for email in re.findall(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', source):
         collapsed = email.replace('@', '')
         if email not in target and target.count(collapsed) == 1:

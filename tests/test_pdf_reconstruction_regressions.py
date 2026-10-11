@@ -13,6 +13,22 @@ from app.terminology import reference_label
 
 
 class ReconstructionRegressions(unittest.TestCase):
+    def test_small_print_can_be_translated_at_its_original_scale(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); source=root/'source.pdf'; target=root/'target.pdf'
+            c=canvas.Canvas(str(source),pagesize=(612,792))
+            c.setFont('Helvetica',4.5)
+            text='Registered trademarks belong to their respective owners.'
+            c.drawString(320,25,text);c.save()
+            scale=2500/792
+            width=pdfmetrics.stringWidth(text,'Helvetica',4.5)
+            segment=dict(page=1,text=text,confidence=.95,
+                         box=[int(320*scale),int(763*scale),int((320+width)*scale),int(768*scale)])
+            segment['lines']=[dict(segment)]
+            report=export_pdf(source,['Les marques déposées appartiennent à leurs propriétaires.'],[segment],target)
+            self.assertIn('marques déposées',PdfReader(target).pages[0].extract_text())
+            self.assertFalse(any('zone originale conservée' in w['reason'] for w in report['warnings']))
+
     def test_ink_cleanup_preserves_pale_artwork_and_erases_glyph_fringe(self):
         image = Image.new('RGB',(100,60),'white')
         draw = ImageDraw.Draw(image)
