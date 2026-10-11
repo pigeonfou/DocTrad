@@ -206,7 +206,7 @@ def separate_list_markers(lines, grey):
     consider a prefix next to a detected cell's left edge, never prose/math
     punctuation elsewhere on a line. Retain its position for list grouping.
     """
-    markers = '•●▪*~–—»«=−-+'
+    markers = '•●▪◦○°*~–—»«=−-+'
     for line in lines:
         words = line.pop('words', [])
         cell = line.get('table_cell')

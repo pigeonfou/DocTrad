@@ -4,6 +4,7 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "PLI": "PLI",
     "Network Resilience": "Résilience du réseau",
     "Scalability and Spectrum Efficiency": "Évolutivité et efficacité spectrale",
     "Global Mobility": "Mobilité mondiale",
@@ -72,6 +73,10 @@ def reference_label(text, terms):
     if re.fullmatch(r'\s*(?:\d+\s*\|\s*)?(?:[\w.+-]+@)?[\w-]+(?:\.[\w-]+)+\s*', text):
         return True
     if re.match(r'^TrellisWare Technologies, Inc\.\s+\d+\s', text):
+        return True
+    if re.match(r'^\d{1,6}\s', text) and re.search(r'\b(?:Street|Court|Road|Suite|Avenue)\b', text):
+        return True
+    if re.match(r'^(?:Tel\.?|Phone)\s', text) and ('@' in text or 'www' in text):
         return True
     remaining = text
     found = False

@@ -49,24 +49,47 @@ def estimated_source_size(segment, sx, sy, font):
 
 
 def heading(segment):
+    # A glossary entry describes meaning, not typography. Table list items
+    # such as Chat and File transfer are ordinary body text.
+    if segment.get('table_cell') and segment.get('list_marker'):
+        return False
     text = segment.get('text', '')
     letters = ''.join(c for c in text if c.isalpha())
     return ((len(letters) >= 4 and letters.isupper())
             or (text.strip() in DEFAULT_TERMS and len(text) <= 65))
 
 
+def table_labels(segments, page):
+    cells = [s['table_cell'] for s in segments
+             if s.get('page') == page and s.get('table_cell')]
+    if not cells: return set()
+    left, right = min(c[0] for c in cells), max(c[2] for c in cells)
+    return {i for i,s in enumerate(segments) if s.get('page') == page
+            and s.get('table_cell') and s['table_cell'][0] == left
+            and s['table_cell'][2]-left < (right-left)*.45}
+
+
 def page_typography(segments, page, sx, sy, regular, bold):
     """Share source size estimates across nearby sizes in the same text role."""
     roles = {}
+    labels = table_labels(segments, page)
     for index, segment in enumerate(segments):
         if segment.get('page') != page or segment.get('confidence',1) < .65: continue
         if preserved_name(segment.get('text','')): continue
         cell = segment.get('table_cell')
-        role = ('table' if cell else 'body', heading(segment))
+        role = ('label' if index in labels else 'table' if cell else 'body',
+                index in labels or heading(segment))
         size = estimated_source_size(segment,sx,sy,bold if role[1] else regular)
         if 5 <= size <= 48: roles.setdefault(role,[]).append((size,index))
     sizes = {}
-    for entries in roles.values():
+    for role, entries in roles.items():
+        if role[0] == 'label':
+            # Very short acronyms have too little ink to estimate independently.
+            reliable = [size for size,index in entries
+                        if len(segments[index]['text'].strip()) >= 4]
+            common = median(reliable or [size for size,_ in entries])
+            for _,index in entries: sizes[index] = common
+            continue
         clusters = []
         for size,index in sorted(entries):
             if not clusters or size > clusters[-1][0][0]*1.12:
@@ -140,6 +163,20 @@ def export_pdf(original, targets, segments, destination):
                 pdf.drawImage(ImageReader(image), 0, 0, width=width, height=height)
                 sx, sy = width / image.width, height / image.height
                 source_sizes = page_typography(segments,page_number,sx,sy,regular_font,bold_font)
+                labels = table_labels(segments, page_number)
+                text_draws = []
+                marker_sizes = [min(s['list_marker'][2]-s['list_marker'][0],
+                                    s['list_marker'][3]-s['list_marker'][1])
+                                for s in segments if s.get('page') == page_number and s.get('list_marker')]
+                marker_size = median(marker_sizes) if marker_sizes else 0
+                marker_pixels = [rgb for s in segments
+                                 if s.get('page') == page_number and s.get('list_marker')
+                                 for rgb in image.crop(tuple(s['list_marker'])).getdata()]
+                saturation = max((max(rgb)-min(rgb) for rgb in marker_pixels),default=0)
+                coloured_markers = [rgb for rgb in marker_pixels
+                                   if max(rgb)-min(rgb) >= max(20,saturation*.75)]
+                marker_colour = (tuple(median(rgb[k] for rgb in coloured_markers) for k in range(3))
+                                 if coloured_markers else None)
                 right_margin = content_right(segments,page_number,image.width)
                 for index, (target, segment) in enumerate(zip(targets, segments)):
                     if segment.get('page') != page_number:
@@ -150,7 +187,10 @@ def export_pdf(original, targets, segments, destination):
                     if segment.get('image_size') and list(image.size) != segment['image_size']:
                         raise ValueError('Dimensions OCR différentes du rendu PDF')
                     source_text = segment.get('text', '')
-                    is_heading = heading(segment)
+                    if index in labels and re.fullmatch(r'[A-Z]{2,6}', source_text.strip()):
+                        if target.strip().rstrip('.') == source_text.strip():
+                            target = source_text.strip()
+                    is_heading = index in labels or heading(segment)
                     font = bold_font if is_heading else regular_font
                     if target == source_text:
                         if (re.search(r'[A-Za-z]{3,}', source_text)
@@ -169,9 +209,9 @@ def export_pdf(original, targets, segments, destination):
                     if not target.strip():
                         raise ValueError('Traduction PDF vide')
                     if segment.get('list_marker'):
-                        # The original bullet remains an image. Never draw the
-                        # punctuation a model invents in its place a second time.
-                        target = re.sub(r'^[\s•●▪*~–—»«=−-]+', '', target)
+                        # The marker is retained or repainted separately. Never
+                        # draw punctuation invented by the model a second time.
+                        target = re.sub(r'^[\s•●▪◦○°*~–—»«=−-]+', '', target)
                         if not target.strip(): raise ValueError('Traduction PDF vide')
                     # Average line confidence avoids rejecting a whole paragraph for one word.
                     if segment.get('confidence', 1) < .65:
@@ -207,6 +247,31 @@ def export_pdf(original, targets, segments, destination):
                                      key=lambda colour: sum((a-b)**2 for a,b in zip(colour, background)))
                     x, y = x0*sx, height-y1*sy
                     available_width, available_height = (x1-x0)*sx, (y1-y0)*sy
+                    marker = segment.get('list_marker')
+                    cell = segment.get('table_cell')
+                    if marker and cell:
+                        # Repaint only the isolated list gutter, never cell borders
+                        # or text. This removes source compression halos consistently.
+                        a,b,c,d = marker
+                        left, right = max(cell[0]+3,a-6), min(x0-2,c+6)
+                        top, bottom = max(cell[1]+3,b-6), min(cell[3]-3,d+6)
+                        if left < right and top < bottom:
+                            patch_colours = image.crop((int(a),int(b),int(c),int(d))).getdata()
+                            coloured = [rgb for rgb in patch_colours if max(rgb)-min(rgb) > 20]
+                            if coloured and marker_colour:
+                                pdf.setFillColorRGB(*(v/255 for v in background))
+                                pdf.rect(left*sx,height-bottom*sy,(right-left)*sx,(bottom-top)*sy,fill=1,stroke=0)
+                                pdf.setFillColorRGB(*(v/255 for v in marker_colour))
+                                pdf.circle((a+c)/2*sx,height-(b+d)/2*sy,marker_size*min(sx,sy)/2,fill=1,stroke=0)
+                    if target == source_text and reference_label(source_text, {}):
+                        # Keep unchanged reference artwork exact while making it
+                        # searchable. Painting a contact line can destroy a nearby
+                        # postal line when their OCR rectangles overlap.
+                        for line in segment.get('lines') or [segment]:
+                            a,b,c,d = line['box']
+                            size = estimated_source_size(line,sx,sy,font)
+                            text_draws.append((a*sx,height-d*sy,font,size,line['text'],1,foreground,True))
+                        continue
                     # A short label may use blank space inside its cell. Stop at
                     # a neighbouring text box or any visible border/illustration.
                     limit = max(x1, right_margin)
@@ -234,11 +299,32 @@ def export_pdf(original, targets, segments, destination):
                         # adjacent segment at the same vertical position.
                         cell_width = max((x1-x0)*sx, (min(cell[2]-5, limit, end)-x0)*sx)
                         available_width = min(available_width, cell_width)
+                        # New text keeps a physical margin even when source ink
+                        # or OCR boxes nearly touch the cell's right border.
+                        available_width = min(available_width,(cell[2]-x0)*sx-3)
                     source_lines = segment.get('lines', [])
                     if source_lines:
                         # Use only whitespace verified across the entire block
                         # and its clearance band, never space across artwork.
                         size = source_sizes.get(index, estimated_source_size(segment, sx, sy, font))
+                        # French prose can need an extra line. Use blank space
+                        # below the source block before reducing the whole font.
+                        bottom = min(image.height-clearance, y1+round(size*1.18/sy))
+                        if cell: bottom = min(bottom,cell[3]-5)
+                        corridor_right = min(image.width,round(x0+available_width/sx))
+                        for neighbour in segments:
+                            other = neighbour.get('box')
+                            if (neighbour is not segment and neighbour.get('page') == page_number
+                                    and other and other[1] >= y1
+                                    and other[0] < corridor_right and other[2] > x0):
+                                bottom = min(bottom,other[1]-clearance)
+                        extended = y1
+                        for row in range(y1+3,max(y1+3,int(bottom))):
+                            contrasting = sum(max(abs(a-b) for a,b in zip(pixels[column,row],background)) > 30
+                                              for column in range(x0,corridor_right))
+                            if contrasting > max(2,(corridor_right-x0)*.01): break
+                            extended = row-2
+                        available_height = max(available_height,(extended-y0)*sy)
                         def wrap(text, font_size, horizontal_scale=1):
                             output, current = [], ''
                             for word in text.split():
@@ -280,15 +366,9 @@ def export_pdf(original, targets, segments, destination):
                             pdf.rect(max(0,a-2)*sx, height-min(image.height,d+2)*sy,
                                      (min(image.width,c+2)-max(0,a-2))*sx,
                                      (min(image.height,d+2)-max(0,b-2))*sy, stroke=0, fill=1)
-                        pdf.setFillColorRGB(*(value/255 for value in foreground))
-                        pdf.setFont(font, size)
                         baseline = height-y0*sy-ascent
                         for line in wrapped:
-                            text_object = pdf.beginText(x, baseline)
-                            text_object.setFont(font,size)
-                            text_object.setHorizScale(horizontal_scale*100)
-                            text_object.textOut(line)
-                            pdf.drawText(text_object)
+                            text_draws.append((x,baseline,font,size,line,horizontal_scale,foreground,False))
                             baseline -= leading
                         continue
                     size = source_sizes.get(index, estimated_source_size(segment, sx, sy, font))
@@ -310,11 +390,24 @@ def export_pdf(original, targets, segments, destination):
                     pdf.setFillColorRGB(*(value/255 for value in background))
                     pdf.rect(mask[0]*sx, height-mask[3]*sy,
                              (mask[2]-mask[0])*sx, (mask[3]-mask[1])*sy, stroke=0, fill=1)
-                    pdf.setFillColorRGB(*(value/255 for value in foreground))
-                    pdf.setFont(font, size)
                     ascent, descent = ink_metrics(target,font,size)
                     baseline = y + (available_height-(ascent+descent))/2+descent
-                    pdf.drawString(x, baseline, target)
+                    if cell and ascent+descent+6 <= (cell[3]-cell[1])*sy:
+                        baseline = max(height-cell[3]*sy+3+descent,
+                                       min(baseline,height-cell[1]*sy-3-ascent))
+                    text_draws.append((x,baseline,font,size,target,1,foreground,False))
+                # Every source mask must precede every translated glyph. OCR
+                # boxes can overlap; later masks must not clip earlier text.
+                for x,y,font,size,text,scale,colour,invisible in text_draws:
+                    pdf.saveState()
+                    pdf.setFillColorRGB(*(value/255 for value in colour))
+                    obj = pdf.beginText(x,y)
+                    obj.setFont(font,size)
+                    obj.setHorizScale(scale*100)
+                    obj.setTextRenderMode(3 if invisible else 0)
+                    obj.textOut(text)
+                    pdf.drawText(obj)
+                    pdf.restoreState()
                 pdf.showPage()
                 image.close()
         pdf.save()
