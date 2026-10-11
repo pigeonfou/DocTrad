@@ -16,7 +16,7 @@ class RemoteTests(unittest.TestCase):
         self.key.chmod(0o600)
         self.config = self.root / "remote-ai.json"
         self.value = dict(enabled=True, default=True, base_url="http://192.168.6.22:8888/v1",
-            model="test-model", key_file=str(self.key))
+            model="test-model", key_file=str(self.key), auto_load=False)
         self.config.write_text(json.dumps(self.value))
         self.patch = patch.object(remote_ai, "CONFIG", self.config)
         self.patch.start()

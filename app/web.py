@@ -193,7 +193,10 @@ def admin(request: Request):
         if not user.admin: raise HTTPException(403)
     from .cli import diagnostic
     from .model_download import CATALOG, latest_status
-    return templates.TemplateResponse(request=request, name="admin.html", context={"system":diagnostic(),"models":Registry().list(),"csrf":request.session["csrf"],"catalog":CATALOG,"download":latest_status(DATA / "model-downloads", MODELS)})
+    import json
+    from .remote_ai import loading_options, CONFIG
+    remote_options = loading_options(json.loads(CONFIG.read_text()) if CONFIG.exists() else {})
+    return templates.TemplateResponse(request=request, name="admin.html", context={"system":diagnostic(),"models":Registry().list(),"csrf":request.session["csrf"],"catalog":CATALOG,"download":latest_status(DATA / "model-downloads", MODELS),"remote_options": remote_options})
 
 
 @app.post("/admin/models/download")
@@ -265,3 +268,15 @@ def remote_api_key(request: Request, api_key: str = Form(), token: str = Form())
         raise HTTPException(503, "Impossible d'enregistrer la clé : vérifiez les permissions du dossier de données.")
     return RedirectResponse(BASE_PATH + "/admin?remote_saved=1", status_code=303)
 
+
+
+@app.post('/admin/remote-ai/loading')
+def remote_loading(request: Request, context_length: int = Form(), auto_load: str = Form(''), token: str = Form()):
+    csrf(request,token)
+    with Session() as db:
+        if not authenticated(request,db).admin: raise HTTPException(403)
+    from .remote_ai import save_loading_options
+    try: save_loading_options(context_length,auto_load == 'yes')
+    except ValueError as exc: raise HTTPException(400,str(exc)) from exc
+    except OSError: raise HTTPException(503,'Impossible de sauvegarder les paramètres IA') from None
+    return RedirectResponse(BASE_PATH + '/admin?loading_saved=1',status_code=303)

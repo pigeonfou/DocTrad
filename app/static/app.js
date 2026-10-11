@@ -9,6 +9,9 @@ if (panel && ['queued','running','export_queued','exporting'].includes(panel.dat
       document.querySelector('#job-status').textContent = state.status;
       document.querySelector('#job-progress').textContent = state.progress;
       document.querySelector('progress').value = state.progress;
+      const remoteState = document.querySelector('#remote-model-state');
+      const lastEvent = (state.diagnostics || []).at(-1);
+      if (remoteState) remoteState.textContent = lastEvent?.event === 'remote_model_loading' ? 'Chargement du modèle distant…' : '';
       const diagnostic = document.querySelector('#job-diagnostics');
       if (diagnostic) diagnostic.textContent = JSON.stringify(state.diagnostics || [], null, 2);
       if (['done','failed'].includes(state.status)) { clearInterval(timer); location.reload(); }

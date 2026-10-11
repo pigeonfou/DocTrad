@@ -8,6 +8,14 @@
 <label>Nouvelle clé API Unsloth<input type="password" name="api_key" autocomplete="new-password" maxlength="512" required></label>
 <button>Enregistrer la clé API</button>
 </form>
+<form action="{{ base_path }}/admin/remote-ai/loading" method="post">
+<input type="hidden" name="token" value="{{ csrf }}">
+<label class="check"><input type="checkbox" name="auto_load" value="yes" {% if remote_options.auto_load %}checked{% endif %}>Charger automatiquement TranslateGemma 12B Q4_K_M au début de chaque traduction distante</label>
+<label>Contexte (tokens)<input type="number" name="context_length" min="1024" max="32768" value="{{ remote_options.context_length }}" required></label>
+<p>Le modèle doit déjà être téléchargé sur la BC-250. Le chargement décharge les modèles texte et image actifs et peut interrompre leur génération. Un contexte plus grand consomme davantage de mémoire. Les paramètres s’appliquent aux nouvelles traductions.</p>
+{% if request.query_params.get('loading_saved') == '1' %}<p role="status">Paramètres de chargement enregistrés.</p>{% endif %}
+<button>Enregistrer le chargement automatique</button>
+</form>
 </section>
 <section class="card"><h2>Installer un modèle de traduction</h2>
 <p>Choisissez un modèle local. Le téléchargement initial contacte Hugging Face pour récupérer les poids publics ; vos documents ne sont pas envoyés. Après installation, la traduction reste hors ligne.</p>
@@ -27,4 +35,5 @@
 <section class="card"><p>Si le modèle BC-250 est sélectionné, les passages sont transmis à votre serveur IA sur le réseau privé. Les modèles locaux restent disponibles.</p><h2>Modèles présents</h2><table><tr><th>Modèle</th><th>Révision</th><th>Licence</th><th>Profil</th><th>État</th><th>Choix automatique</th></tr>{% for m in models %}<tr><td>{{ m.name }}</td><td>{{ m.revision[:8] }}</td><td>{{ m.license }}</td><td>{{ m.profile }}</td><td>{{ m.status }}</td><td>{% if m.default %}Par défaut{% elif m.status == 'ready' and m.enabled|default(true) %}<form action="{{ base_path }}/admin/models/default" method="post"><input type="hidden" name="token" value="{{ csrf }}"><input type="hidden" name="model_id" value="{{ m.id }}"><button class="secondary">Utiliser par défaut</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">Aucun modèle installé. Utilisez le téléchargement ci-dessus ou importez des modèles préparés sur une autre machine.</td></tr>{% endfor %}</table></section>
 <section class="card"><h2>Diagnostic</h2><dl>{% for k,v in system.items() %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl></section>
 {% endblock %}
+
 

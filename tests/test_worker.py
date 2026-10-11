@@ -101,3 +101,24 @@ def test_worker_sends_context_and_audits_changed_units(monkeypatch):
         assert segment.target == target
         assert any('26 miles' in warning for warning in segment.warnings)
         assert any('Shadow Radio' in warning for warning in segment.warnings)
+
+
+
+def test_remote_job_waits_when_another_worker_holds_bc250(monkeypatch):
+    import fcntl
+    from app import worker
+    DATA.mkdir(parents=True,exist_ok=True)
+    with Session.begin() as db:
+        user=User(username='remote-lock',password='unused');db.add(user);db.flush()
+        db.add(Job(id='remote-lock-job',owner_id=user.id,filename='a.pdf',suffix='.pdf',
+                   model_id='remote-bc250',model_version='a'*40,status='running'))
+    calls=[]
+    monkeypatch.setattr(worker,'_run_job',lambda job_id:calls.append(job_id))
+    monkeypatch.setattr(worker.time,'sleep',lambda seconds:None)
+    with open(DATA/'remote-job.lock','a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
+        run_job('remote-lock-job')
+    assert not calls
+    with Session() as db:assert db.get(Job,'remote-lock-job').status=='queued'
+    run_job('remote-lock-job')
+    assert calls==['remote-lock-job']

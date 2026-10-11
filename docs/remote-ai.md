@@ -58,3 +58,32 @@ Seul choices[0].message.content est exporté, jamais reasoning_content.
 
 Pour désactiver, mettre enabled à false dans remote-ai.json et sélectionner un
 modèle local. Aucun changement d'OneForAll, de CablePlan ou d'OddWorks n'est requis.
+
+### Chargement automatique dans Unsloth
+
+Dans **Système & modèles IA → Serveur IA BC-250**, le chargement automatique
+sélectionne TranslateGemma 12B Q4_K_M. Le champ **Contexte (tokens)** est
+configurable entre 1024 et 32768, avec 4096 par défaut. Le modèle GGUF doit déjà
+être présent sur la BC-250. Un contexte plus grand demande davantage de mémoire.
+
+Au début d'une traduction distante, DocTrad appelle, avec la clé privée :
+`GET /api/inference/status`, `POST /api/inference/images/unload`, puis si
+nécessaire `POST /api/inference/unload` et `POST /api/inference/load` avec
+`model_path`, `gguf_variant=Q4_K_M` et `max_seq_length`. L'état final doit confirmer
+la quantification et le contexte effectif. Une génération active peut être
+interrompue par le déchargement. Le modèle reste chargé après le travail.
+
+Un verrou sur DocTrad réserve la BC-250 pendant chaque document. Le moteur
+revérifie aussi les réglages avant les requêtes de traduction. Un changement
+externe dans Unsloth peut donc déclencher un nouveau chargement. Le verrou ne
+réserve pas la machine aux utilisateurs directs d'Unsloth : ne pas lancer une
+génération d'image pendant une traduction.
+
+Ces appels nécessitent une version d'Unsloth exposant ces routes et une clé
+autorisée à contrôler les modèles. Un refus 401/403 arrête le travail sans tenter
+une connexion anonyme. Les erreurs de chargement et les contextes non respectés
+sont signalés ; aucun autre modèle n'est utilisé silencieusement.
+
+Le contexte et le chargement automatique font partie de la révision du modèle.
+Après modification des réglages, créer une nouvelle traduction. Décocher le
+chargement automatique conserve le fonctionnement manuel du modèle configuré.

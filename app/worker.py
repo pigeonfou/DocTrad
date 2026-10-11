@@ -32,7 +32,7 @@ def claim():
         job.status = "exporting" if job.status == "export_queued" else "running"; job.heartbeat = now()
         return job.id
 
-def run_job(job_id):
+def _run_job(job_id):
     start = time.monotonic()
     record(job_id, "started")
     try:
@@ -42,6 +42,16 @@ def run_job(job_id):
                 export_job(s, job)
                 job.status = "done"; job.progress = 100; s.commit()
                 return
+            if job.model_id == 'remote-bc250':
+                from .remote_ai import settings, manifest as remote_manifest, ensure_model
+                current = remote_manifest()
+                if not current or current['revision'] != job.model_version:
+                    raise ValueError('Configuration IA distante modifiée ; créer une nouvelle traduction')
+                record(job_id, 'remote_model_loading')
+                s.commit()
+                ensure_model(settings())
+                record(job_id, 'remote_model_ready')
+                job.heartbeat = now(); s.commit()
             terms = {g.source:g.target for g in s.scalars(select(Glossary).where(Glossary.active == True).order_by(Glossary.priority.desc()))}
             terms = terminology(terms)
             items = analyze(DATA / "uploads" / (job.id + job.suffix), job.suffix)
@@ -110,6 +120,25 @@ def recover_layout_failures():
                 job.status = 'export_queued'
                 job.error = ''
 
+
+def run_job(job_id):
+    # Hold the remote job slot for the entire document, not only the switch.
+    import fcntl
+    with Session() as session:
+        job=session.get(Job,job_id)
+        remote=job.model_id == 'remote-bc250' and job.status != 'exporting'
+    if not remote: return _run_job(job_id)
+    with open(DATA / 'remote-job.lock','a') as lock:
+        try: fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            with Session.begin() as session:
+                job=session.get(Job,job_id);job.status='queued';job.heartbeat=now()
+            time.sleep(1)
+            return
+        return _run_job(job_id)
+
+
 if __name__ == "__main__": main()
+
 
 

@@ -8,7 +8,12 @@ from .config import DATA
 
 class InferenceError(ValueError):
     def __init__(self, code, diagnostic):
-        super().__init__("IA distante indisponible ou réponse incomplète : " + code)
+        messages = {
+            'remote_control_auth': 'Unsloth refuse le contrôle des modèles : vérifier les droits de la clé API.',
+            'remote_model_load': 'Chargement du modèle distant échoué : vérifier Unsloth et la mémoire de la BC-250.',
+            'remote_model_settings': 'Unsloth ne confirme pas TranslateGemma Q4_K_M avec le contexte demandé.',
+        }
+        super().__init__(messages.get(code, "IA distante indisponible ou réponse incomplète : " + code))
         self.diagnostic = safe_details(dict(diagnostic, code=code))
 
 def safe_details(value):
@@ -34,7 +39,7 @@ def record(job_id, event, **details):
         path = path_for(job_id)
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         entry = dict(time=datetime.now(timezone.utc).isoformat(),
-                     event=event if event in ("started", "segment_started", "segment_done", "failed", "done") else "unknown",
+                     event=event if event in ("started", "segment_started", "segment_done", "failed", "done", "remote_model_loading", "remote_model_ready") else "unknown",
                      **safe_details(details))
         # Keep a rolling window rather than accumulating unlimited logs.
         lines = path.read_text().splitlines()[-199:] if path.exists() else []

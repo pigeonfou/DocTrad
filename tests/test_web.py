@@ -89,3 +89,26 @@ def test_upload_process_correct_download(client,tmp_path,monkeypatch):
     with Session() as db:assert db.scalar(select(Correction)).previous=='Tension alimentation : 12 VDC.'
     assert not (DATA/'danger.docx').exists()
 
+
+
+
+def test_remote_loading_options_admin_only_and_context_saved(client):
+    import json
+    from app.remote_ai import CONFIG
+    token=signin(client,admin=True)
+    response=client.post('/admin/remote-ai/loading',data=dict(token=token,context_length=8192,auto_load='yes'))
+    assert response.status_code==200
+    assert 'Contexte (tokens)' in response.text
+    value=json.loads(CONFIG.read_text())
+    assert value['context_length']==8192 and value['auto_load'] is True
+    assert CONFIG.stat().st_mode & 0o777 == 0o600
+    previous=CONFIG.read_text()
+    response=client.post('/admin/remote-ai/loading',data=dict(token=token,context_length=0,auto_load='yes'))
+    assert response.status_code==400 and CONFIG.read_text()==previous
+    assert client.post('/admin/remote-ai/loading',data=dict(token='wrong',context_length=4096)).status_code==403
+    CONFIG.unlink()
+
+
+def test_regular_user_cannot_change_remote_context(client):
+    token=signin(client)
+    assert client.post('/admin/remote-ai/loading',data=dict(token=token,context_length=4096)).status_code==403

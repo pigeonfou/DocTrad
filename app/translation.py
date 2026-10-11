@@ -147,8 +147,11 @@ class RemoteEngine(TransformersEngine):
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):
                 return None
-        from .remote_ai import translation_payload
+        from .remote_ai import translation_payload, ensure_model
+        ensure_model(self.settings, unload_images=False)
         payload = translation_payload(self.settings["model"], text)
+        if self.settings.get("auto_load"):
+            payload["max_tokens"] = min(payload["max_tokens"], self.settings["context_length"] // 2)
         if retry and "translategemma" in self.settings["model"].lower():
             payload["repetition_penalty"] = 1.1
             payload["max_tokens"] = 512
