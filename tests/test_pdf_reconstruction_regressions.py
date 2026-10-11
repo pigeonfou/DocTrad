@@ -5,12 +5,44 @@ from pathlib import Path
 from pypdf import PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from PIL import Image, ImageDraw
 
-from app.pdf_layout import export_pdf, heading, page_typography
+from app.pdf_layout import export_pdf, heading, page_typography, clean_text_patch, harmonize_text_draws
 from app.terminology import reference_label
 
 
 class ReconstructionRegressions(unittest.TestCase):
+    def test_ink_cleanup_preserves_pale_artwork_and_erases_glyph_fringe(self):
+        image = Image.new('RGB',(100,60),'white')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((45,0,55,59),fill=(235,235,235))
+        draw.rectangle((20,20,80,35),fill=(10,10,10))
+        draw.rectangle((20,36,80,37),fill=(195,195,195))
+        patch = clean_text_patch(image,(15,17,85,40),(255,255,255))
+        self.assertEqual(patch.getpixel((35,10)),(235,235,235))
+        self.assertEqual(patch.getpixel((10,20)),(255,255,255))
+        self.assertEqual(patch.getpixel((35,0)),(235,235,235))
+
+    def test_fitted_body_fonts_share_size_without_enlarging_text(self):
+        font='RegressionDejaVu'
+        pdfmetrics.registerFont(TTFont(font,'/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+        segments=[dict(text='Body paragraph'),dict(text='Other paragraph')]
+        draws=[(0,100,font,8,'Corps de texte',1,(0,0,0),False,0),
+               (0,50,font,7.5,'Autre paragraphe',1,(0,0,0),False,1)]
+        output=harmonize_text_draws(draws,segments,{0:8,1:8},set())
+        self.assertEqual([d[3] for d in output],[7.5,7.5])
+        self.assertGreater(output[0][1],100)
+
+    def test_neighbouring_rule_is_not_interpolated_into_erased_text(self):
+        image=Image.new('RGB',(100,60),'white')
+        draw=ImageDraw.Draw(image)
+        draw.rectangle((20,20,80,35),fill='black')
+        draw.line((0,40,99,40),fill=(220,220,220))
+        patch=clean_text_patch(image,(15,17,85,40),(255,255,255))
+        self.assertEqual(patch.getpixel((35,10)),(255,255,255))
+        self.assertEqual(image.getpixel((50,40)),(220,220,220))
+
     def test_acronym_and_long_label_share_column_typography(self):
         cell = [0,0,150,100]
         text = 'Frequencies'
@@ -60,7 +92,7 @@ class ReconstructionRegressions(unittest.TestCase):
                       dict(page=1,text='Second line',box=[126,290,500,330])]
             export_pdf(source,['Première ligne','Deuxième ligne'],segments,target)
             operations=PdfReader(target).pages[0].get_contents().operations
-            masks=[i for i,(_,op) in enumerate(operations) if op in (b'f',b'f*',b'B',b'B*')]
+            masks=[i for i,(_,op) in enumerate(operations) if op in (b'Do',b'f',b'f*',b'B',b'B*')]
             text=[i for i,(_,op) in enumerate(operations) if op in (b'Tj',b'TJ')]
             self.assertTrue(masks and text)
             self.assertLess(max(masks),min(text))

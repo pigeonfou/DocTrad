@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageFont, ImageFilter
 from pypdf import PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -114,6 +114,60 @@ def content_right(segments, page, image_width):
               and box[2]-box[0] > image_width*.5 and box[2] < image_width*.97):
             rights.append(box[2])
     return min(image_width-2,max(rights)) if rights else image_width-2
+
+
+def clean_text_patch(image, box, background):
+    """Erase ink and its compression fringe without flattening pale artwork.
+
+    Interpolate the background above and below each source line. Only pixels
+    around contrasting ink are replaced; the rest of the original motif stays
+    exact. This is deliberately limited to the OCR ink rectangle.
+    """
+    left, top, right, bottom = box
+    patch = image.crop(box)
+    ink = Image.new('L', patch.size)
+    ink.putdata([255 if max(abs(a-b) for a,b in zip(rgb,background)) > 45 else 0
+                 for rgb in patch.getdata()])
+    ink = ink.filter(ImageFilter.MaxFilter(5))
+    source, mask, output = image.load(), ink.load(), patch.load()
+    above, below = max(0,top-1), min(image.height-1,bottom)
+    for x in range(patch.width):
+        a, b = source[left+x,above], source[left+x,below]
+        if max(abs(v-c) for v,c in zip(a,background)) > 24: a = background
+        if max(abs(v-c) for v,c in zip(b,background)) > 24: b = background
+        for y in range(patch.height):
+            if mask[x,y]:
+                ratio = (y+1)/(patch.height+1)
+                output[x,y] = tuple(round(v*(1-ratio)+w*ratio) for v,w in zip(a,b))
+    return patch
+
+
+def harmonize_text_draws(draws, segments, source_sizes, labels):
+    """Use a shared fitted size for body text with the same source typography.
+
+    Never enlarge a fitted paragraph past its verified bounds. Exceptional
+    reductions greater than ten percent stay local instead of shrinking a page.
+    """
+    groups = {}
+    for draw in draws:
+        x,y,font,size,text,scale,colour,invisible,index = draw
+        source = source_sizes.get(index)
+        if invisible or source is None or index in labels or heading(segments[index]): continue
+        if size < source*.9: continue
+        key = (bool(segments[index].get('table_cell')),font,source)
+        groups.setdefault(key,[]).append(draw)
+    common = {key:min(d[3] for d in values) for key,values in groups.items()}
+    result = []
+    for draw in draws:
+        x,y,font,size,text,scale,colour,invisible,index = draw
+        key = (bool(segments[index].get('table_cell')),font,source_sizes.get(index))
+        if not invisible and index not in labels and not heading(segments[index]) and key in common and size >= key[2]*.9:
+            fitted = common[key]
+            # Keep the top edge aligned when a baseline's font becomes smaller.
+            y += ink_metrics(text,font,size)[0]-ink_metrics(text,font,fitted)[0]
+            size = fitted
+        result.append((x,y,font,size,text,scale,colour,invisible,index))
+    return result
 
 
 def export_pdf(original, targets, segments, destination):
@@ -270,7 +324,7 @@ def export_pdf(original, targets, segments, destination):
                         for line in segment.get('lines') or [segment]:
                             a,b,c,d = line['box']
                             size = estimated_source_size(line,sx,sy,font)
-                            text_draws.append((a*sx,height-d*sy,font,size,line['text'],1,foreground,True))
+                            text_draws.append((a*sx,height-d*sy,font,size,line['text'],1,foreground,True,index))
                         continue
                     # A short label may use blank space inside its cell. Stop at
                     # a neighbouring text box or any visible border/illustration.
@@ -363,12 +417,15 @@ def export_pdf(original, targets, segments, destination):
                         pdf.setFillColorRGB(*(value/255 for value in background))
                         for line in source_lines:
                             a,b,c,d = line['box']
-                            pdf.rect(max(0,a-2)*sx, height-min(image.height,d+2)*sy,
-                                     (min(image.width,c+2)-max(0,a-2))*sx,
-                                     (min(image.height,d+2)-max(0,b-2))*sy, stroke=0, fill=1)
+                            bounds = (max(0,int(a)-3),max(0,int(b)-3),
+                                      min(image.width,int(c)+3),min(image.height,int(d)+3))
+                            cleaned = clean_text_patch(image,bounds,background)
+                            pdf.drawImage(ImageReader(cleaned),bounds[0]*sx,height-bounds[3]*sy,
+                                          width=(bounds[2]-bounds[0])*sx,height=(bounds[3]-bounds[1])*sy)
+                            cleaned.close()
                         baseline = height-y0*sy-ascent
                         for line in wrapped:
-                            text_draws.append((x,baseline,font,size,line,horizontal_scale,foreground,False))
+                            text_draws.append((x,baseline,font,size,line,horizontal_scale,foreground,False,index))
                             baseline -= leading
                         continue
                     size = source_sizes.get(index, estimated_source_size(segment, sx, sy, font))
@@ -388,17 +445,20 @@ def export_pdf(original, targets, segments, destination):
                         report['warnings'].append({'segment': index, 'page': page_number,
                             'reason': 'Police réduite : lisibilité à vérifier', 'font_size': round(size, 2)})
                     pdf.setFillColorRGB(*(value/255 for value in background))
-                    pdf.rect(mask[0]*sx, height-mask[3]*sy,
-                             (mask[2]-mask[0])*sx, (mask[3]-mask[1])*sy, stroke=0, fill=1)
+                    cleaned = clean_text_patch(image,mask,background)
+                    pdf.drawImage(ImageReader(cleaned),mask[0]*sx,height-mask[3]*sy,
+                                  width=(mask[2]-mask[0])*sx,height=(mask[3]-mask[1])*sy)
+                    cleaned.close()
                     ascent, descent = ink_metrics(target,font,size)
                     baseline = y + (available_height-(ascent+descent))/2+descent
                     if cell and ascent+descent+6 <= (cell[3]-cell[1])*sy:
                         baseline = max(height-cell[3]*sy+3+descent,
                                        min(baseline,height-cell[1]*sy-3-ascent))
-                    text_draws.append((x,baseline,font,size,target,1,foreground,False))
+                    text_draws.append((x,baseline,font,size,target,1,foreground,False,index))
                 # Every source mask must precede every translated glyph. OCR
                 # boxes can overlap; later masks must not clip earlier text.
-                for x,y,font,size,text,scale,colour,invisible in text_draws:
+                text_draws = harmonize_text_draws(text_draws,segments,source_sizes,labels)
+                for x,y,font,size,text,scale,colour,invisible,index in text_draws:
                     pdf.saveState()
                     pdf.setFillColorRGB(*(value/255 for value in colour))
                     obj = pdf.beginText(x,y)
