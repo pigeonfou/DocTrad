@@ -265,17 +265,17 @@ def recover_truncated_labels(lines, grey):
 
 
 def separate_list_markers(lines, grey):
-    """Keep table bullets in the background, outside translated ink boxes.
+    """Separate printed list markers from text in tables and body paragraphs.
 
     Tesseract often reads a small coloured square as ~, =, « or *. Only
-    consider a prefix next to a detected cell's left edge, never prose/math
-    punctuation elsewhere on a line. Retain its position for list grouping.
+    consider a prefix or a small isolated gutter component, never an inline
+    operator or a negative value. Retain its position for list grouping.
     """
     markers = '•●▪◦○°*~–—»«=−-+'
     for line in lines:
         words = line.pop('words', [])
         cell = line.get('table_cell')
-        if len(words) < 1 or not cell:
+        if len(words) < 1:
             continue
         first = words[0]
         token = first['text']
@@ -284,8 +284,8 @@ def separate_list_markers(lines, grey):
             # Some bullets are not recognized as words at all. Detect a small
             # isolated ink component in the cell gutter so the next item is
             # never merged into the preceding product reference.
-            left,right = cell[0]+4,a-3
             height = line['box'][3]-line['box'][1]
+            left,right = (cell[0]+4 if cell else max(0,a-height*2)),a-3
             if 2 <= right-left <= height*2:
                 patch = grey.crop((left,b,right,d))
                 background = patch.getextrema()[1]
@@ -296,7 +296,11 @@ def separate_list_markers(lines, grey):
                     if max(xs)-min(xs) <= height*.65 and max(ys)-min(ys) <= height*.65:
                         line['list_marker'] = [min(xs),min(ys),max(xs)+1,max(ys)+1]
             continue
-        if not token or token[0] not in markers or a-cell[0] > max(1,line['box'][3]-line['box'][1])*1.5:
+        if not token or token[0] not in markers or (cell and a-cell[0] > max(1,line['box'][3]-line['box'][1])*1.5):
+            continue
+        if not cell and token == '*':
+            continue  # A standalone asterisk may be a footnote reference.
+        if not cell and token[0] in '+−-' and ((len(token)>1 and token[1].isdigit()) or (token in '+−-' and len(words)>1 and words[1]['text'][:1].isdigit())):
             continue
         if token in markers and len(words) > 1:
             marker_box = first['box']

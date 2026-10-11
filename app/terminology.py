@@ -160,8 +160,13 @@ def correct_network_terms(source, target):
                       or (operator == '>' and re.search(r'\bplus de$', prefix, re.I)))
             if not verbal and not prefix.endswith(('<', '>', '≤', '≥')):
                 target = target[:anchor.start()] + operator + ' ' + target[anchor.start():]
-    if re.search(r'\bfast join and merge\b', source, re.I):
-        target = re.sub(r'^Rejoindre et fusionner rapidement', 'Connexion et fusion rapides des réseaux', target, flags=re.I)
+    if re.search(r'\bfast\s+join\s+(?:and|&)\s+merge\b', source, re.I):
+        target = re.sub(r'^(\s*[•●▪◦○°*–—»«-]?\s*)(?:Rejoindre|Joindre)\s+et\s+fusionner\s+rapidement\b',
+                        r'\1Connexion et fusion rapides des réseaux', target, flags=re.I)
+    if re.search(r'\btrademarks?\s+or\s+registered\s+trademarks?\b', source, re.I):
+        target = re.sub(r'marques(?:\s+déposées|\s+de commerce)?\s+(?:ou|et)\s+(?:des\s+)?marques(?:\s+déposées|\s+de commerce)?',
+                        'marques ou marques déposées', target, flags=re.I)
+        target = re.sub(r'(?<!déposées ou )marques de commerce', 'marques ou marques déposées', target, flags=re.I)
     for email in re.findall(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', source):
         collapsed = email.replace('@', '')
         if email not in target and target.count(collapsed) == 1:

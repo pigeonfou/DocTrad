@@ -39,4 +39,19 @@ class TechnicalTranslationRegressions(unittest.TestCase):
     def test_unrelated_prose_is_unchanged(self):
         self.assertEqual(correct_network_terms('Join the meeting','Rejoindre rapidement la réunion'),'Rejoindre rapidement la réunion')
 
+    def test_join_prefix_is_corrected_with_a_bullet_or_whitespace(self):
+        source='• Fast join & merge (1 second to join, < 5 seconds to merge)'
+        for prefix in ('','  ','• ','▪ '):
+            result=correct_network_terms(source,prefix+'Rejoindre et fusionner rapidement (1 seconde, moins de 5 secondes)')
+            self.assertTrue(result.startswith(prefix+'Connexion et fusion rapides des réseaux'))
+
+    def test_legal_alternative_preserves_registered_and_unregistered_marks(self):
+        source='The names are trademarks or registered trademarks of the company.'
+        for target in ('Les noms sont des marques déposées ou des marques de commerce de la société.',
+                       'Les noms sont des marques de commerce de la société.'):
+            result=correct_network_terms(source,target)
+            self.assertIn('marques ou marques déposées',result)
+            self.assertEqual(correct_network_terms(source,result),result)
+        self.assertEqual(correct_network_terms('This is a trademark.','Une marque de commerce.'),'Une marque de commerce.')
+
 if __name__=='__main__':unittest.main()

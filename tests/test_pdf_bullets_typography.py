@@ -10,6 +10,28 @@ from app.pdf_layout import export_pdf, estimated_source_size
 
 
 class BulletsAndTypography(unittest.TestCase):
+    def test_body_gutter_square_is_detected_without_a_table(self):
+        grey=Image.new('L',(200,80),255)
+        ImageDraw.Draw(grey).rectangle((12,17,18,23),fill=120)
+        line=dict(text='Reliable network',box=[30,10,180,30],
+                  words=[dict(text='Reliable',box=[30,10,90,30]),dict(text='network',box=[100,10,180,30])])
+        separate_list_markers([line],grey)
+        self.assertEqual(line['list_marker'],[12,17,19,24])
+        self.assertEqual(line['text'],'Reliable network')
+
+    def test_negative_value_is_not_a_body_bullet(self):
+        line=dict(text='-12 V',box=[10,10,90,30],words=[dict(text='-12',box=[10,10,40,30]),dict(text='V',box=[50,10,60,30])])
+        separate_list_markers([line],Image.new('L',(100,50),255))
+        self.assertNotIn('list_marker',line)
+        self.assertEqual(line['text'],'-12 V')
+
+    def test_footnote_asterisk_is_not_converted_to_a_list_bullet(self):
+        line=dict(text='* Technical note',box=[10,10,180,30],
+                  words=[dict(text='*',box=[10,10,18,20]),dict(text='Technical note',box=[25,10,180,30])])
+        separate_list_markers([line],Image.new('L',(200,50),255))
+        self.assertNotIn('list_marker',line)
+        self.assertEqual(line['text'],'* Technical note')
+
     def test_unrecognized_bullet_still_separates_list_items(self):
         grey=Image.new('L',(200,100),255)
         ImageDraw.Draw(grey).rectangle((12,17,17,22),fill=100)
@@ -85,8 +107,9 @@ class BulletsAndTypography(unittest.TestCase):
             page=PdfReader(target).pages[0]
             self.assertNotIn('»',page.extract_text())
             self.assertIn('Transfert de fichiers',page.extract_text())
+            self.assertTrue(any(marker in page.extract_text() for marker in ('•','▪')))
             # The orange original square lives in the retained background.
-            im=page.images[0].image.convert('RGB')
+            im=max(page.images,key=lambda item:item.image.width*item.image.height).image.convert('RGB')
             self.assertEqual(im.getpixel((int(31/612*im.width),int(96/792*im.height))),(255,128,0))
 
 

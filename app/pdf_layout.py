@@ -219,18 +219,13 @@ def export_pdf(original, targets, segments, destination):
                 source_sizes = page_typography(segments,page_number,sx,sy,regular_font,bold_font)
                 labels = table_labels(segments, page_number)
                 text_draws = []
-                marker_sizes = [min(s['list_marker'][2]-s['list_marker'][0],
-                                    s['list_marker'][3]-s['list_marker'][1])
-                                for s in segments if s.get('page') == page_number and s.get('list_marker')]
-                marker_size = median(marker_sizes) if marker_sizes else 0
-                marker_pixels = [rgb for s in segments
-                                 if s.get('page') == page_number and s.get('list_marker')
-                                 for rgb in image.crop(tuple(s['list_marker'])).getdata()]
-                saturation = max((max(rgb)-min(rgb) for rgb in marker_pixels),default=0)
-                coloured_markers = [rgb for rgb in marker_pixels
-                                   if max(rgb)-min(rgb) >= max(20,saturation*.75)]
-                marker_colour = (tuple(median(rgb[k] for rgb in coloured_markers) for k in range(3))
-                                 if coloured_markers else None)
+                marker_draws = {}
+                marker_pixels=[rgb for s in segments if s.get('page') == page_number and s.get('list_marker')
+                               for rgb in image.crop(tuple(s['list_marker'])).getdata()]
+                saturation=max((max(rgb)-min(rgb) for rgb in marker_pixels),default=0)
+                coloured_markers=[rgb for rgb in marker_pixels if max(rgb)-min(rgb) >= max(20,saturation*.75)]
+                marker_colour=(tuple(median(rgb[k] for rgb in coloured_markers) for k in range(3))
+                               if coloured_markers else None)
                 right_margin = content_right(segments,page_number,image.width)
                 for index, (target, segment) in enumerate(zip(targets, segments)):
                     if segment.get('page') != page_number:
@@ -303,20 +298,41 @@ def export_pdf(original, targets, segments, destination):
                     available_width, available_height = (x1-x0)*sx, (y1-y0)*sy
                     marker = segment.get('list_marker')
                     cell = segment.get('table_cell')
-                    if marker and cell:
-                        # Repaint only the isolated list gutter, never cell borders
-                        # or text. This removes source compression halos consistently.
+                    if marker:
+                        # Export the marker as a selectable Unicode glyph. Mask
+                        # only its isolated gutter, preserving the nearby text.
                         a,b,c,d = marker
-                        left, right = max(cell[0]+3,a-6), min(x0-2,c+6)
-                        top, bottom = max(cell[1]+3,b-6), min(cell[3]-3,d+6)
+                        left, right = max(0,a-4), min(x0-2,c+4)
+                        top, bottom = max(0,b-4), min(image.height,d+4)
+                        if cell:
+                            left=max(left,cell[0]+3);right=min(right,cell[2]-3)
+                            top=max(top,cell[1]+3);bottom=min(bottom,cell[3]-3)
                         if left < right and top < bottom:
-                            patch_colours = image.crop((int(a),int(b),int(c),int(d))).getdata()
-                            coloured = [rgb for rgb in patch_colours if max(rgb)-min(rgb) > 20]
-                            if coloured and marker_colour:
-                                pdf.setFillColorRGB(*(v/255 for v in background))
-                                pdf.rect(left*sx,height-bottom*sy,(right-left)*sx,(bottom-top)*sy,fill=1,stroke=0)
-                                pdf.setFillColorRGB(*(v/255 for v in marker_colour))
-                                pdf.circle((a+c)/2*sx,height-(b+d)/2*sy,marker_size*min(sx,sy)/2,fill=1,stroke=0)
+                            bounds=tuple(int(v) for v in (left,top,right,bottom))
+                            cleaned=(Image.new('RGB',(bounds[2]-bounds[0],bounds[3]-bounds[1]),background)
+                                     if cell else clean_text_patch(image,bounds,background))
+                            pdf.drawImage(ImageReader(cleaned),left*sx,height-bottom*sy,
+                                          width=(right-left)*sx,height=(bottom-top)*sy)
+                            cleaned.close()
+                            patch_pixels=list(image.crop(tuple(int(v) for v in marker)).getdata())
+                            ink=[rgb for rgb in patch_pixels
+                                 if max(abs(v-w) for v,w in zip(rgb,background)) > 45]
+                            coloured=[rgb for rgb in ink if max(rgb)-min(rgb)>20]
+                            colour=(tuple(median(rgb[k] for rgb in coloured or ink) for k in range(3))
+                                    if ink else foreground)
+                            if marker_colour and any(max(rgb)-min(rgb)>10 for rgb in patch_pixels):
+                                colour=marker_colour
+                            # Solid squares and round dots retain distinct glyphs.
+                            occupancy=len(ink)/max(1,len(patch_pixels))
+                            glyph='▪' if occupancy > .85 else '•'
+                            marker_font=regular_font
+                            ascent,descent=ink_metrics(glyph,marker_font,1)
+                            marker_height=min(d-b,c-a)*sy
+                            size=marker_height/max(.1,ascent+descent)
+                            advance=pdfmetrics.stringWidth(glyph,marker_font,size)
+                            baseline=height-(b+d)/2*sy+(descent-ascent)*size/2
+                            marker_draws[index]=((a+c)/2*sx-advance/2,baseline,marker_font,size,
+                                                 glyph,1,colour,False,index)
                     if target == source_text and reference_label(source_text, {}):
                         # Keep unchanged reference artwork exact while making it
                         # searchable. Painting a contact line can destroy a nearby
@@ -460,7 +476,13 @@ def export_pdf(original, targets, segments, destination):
                 # Every source mask must precede every translated glyph. OCR
                 # boxes can overlap; later masks must not clip earlier text.
                 text_draws = harmonize_text_draws(text_draws,segments,source_sizes,labels)
-                for x,y,font,size,text,scale,colour,invisible,index in text_draws:
+                ordered_draws=[]
+                for draw in text_draws:
+                    marker_draw=marker_draws.pop(draw[-1],None)
+                    if marker_draw: ordered_draws.append(marker_draw)
+                    ordered_draws.append(draw)
+                ordered_draws.extend(marker_draws.values())
+                for x,y,font,size,text,scale,colour,invisible,index in ordered_draws:
                     pdf.saveState()
                     pdf.setFillColorRGB(*(value/255 for value in colour))
                     obj = pdf.beginText(x,y)
