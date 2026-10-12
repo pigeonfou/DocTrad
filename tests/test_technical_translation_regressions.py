@@ -6,6 +6,11 @@ from app.ocr import recover_legal_small_print
 from app.terminology import correct_network_terms
 
 class TechnicalTranslationRegressions(unittest.TestCase):
+    def test_signed_comparison_and_cubic_unit_are_preserved(self):
+        self.assertEqual(correct_network_terms('> -53dBc','53 dBc'),'> -53 dBc')
+        self.assertEqual(correct_network_terms('167 in³ (without battery)','167 pouces (sans batterie)'),
+                         '167 in³ (sans batterie)')
+        self.assertEqual(correct_network_terms('-40°C to +60°C','40°C à +60°C'),'-40°C à +60°C')
     def test_legal_reread_keeps_contacts_and_document_code_separate(self):
         lines=[dict(text='Marks are trademarks',box=[100,2400,190,2410],confidence=.9),
                dict(text='of their owners.',box=[100,2420,190,2430],confidence=.9),

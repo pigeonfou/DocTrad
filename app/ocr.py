@@ -280,7 +280,11 @@ def separate_list_markers(lines, grey):
         first = words[0]
         token = first['text']
         a,b,c,d = first['box']
-        if token and token[0] not in markers:
+        if token == '>' and len(words)>1 and re.match(r'[^\W\d_]',words[1]['text']):
+            markers_for_line = markers + '>'
+        else: markers_for_line = markers
+        if token and token[0] not in markers_for_line:
+            if line.get('native_text'): continue  # Native prose beside an image is not a raster bullet.
             # Some bullets are not recognized as words at all. Detect a small
             # isolated ink component in the cell gutter so the next item is
             # never merged into the preceding product reference.
@@ -296,13 +300,13 @@ def separate_list_markers(lines, grey):
                     if max(xs)-min(xs) <= height*.65 and max(ys)-min(ys) <= height*.65:
                         line['list_marker'] = [min(xs),min(ys),max(xs)+1,max(ys)+1]
             continue
-        if not token or token[0] not in markers or (cell and a-cell[0] > max(1,line['box'][3]-line['box'][1])*1.5):
+        if not token or token[0] not in markers_for_line or (cell and a-cell[0] > max(1,line['box'][3]-line['box'][1])*1.5):
             continue
-        if not cell and token == '*':
+        if token == '*' or (line.get('native_text') and token.startswith('*')):
             continue  # A standalone asterisk may be a footnote reference.
         if not cell and token[0] in '+−-' and ((len(token)>1 and token[1].isdigit()) or (token in '+−-' and len(words)>1 and words[1]['text'][:1].isdigit())):
             continue
-        if token in markers and len(words) > 1:
+        if token in markers_for_line and len(words) > 1:
             marker_box = first['box']
             remaining = words[1:]
         elif len(token) > 1 and token[1].isalnum():
@@ -321,6 +325,14 @@ def separate_list_markers(lines, grey):
             remaining = [dict(first, text=token[1:], box=[a+next_ink,b,c,d]), *words[1:]]
         else:
             continue
+        if line.get('native_text'):
+            a,b,c,d=marker_box
+            background=grey.crop((a,b,c,d)).getextrema()[1]
+            points=[(x,y) for y in range(b,d) for x in range(a,c)
+                    if abs(grey.getpixel((x,y))-background)>45]
+            if points:
+                xs,ys=zip(*points);marker_box=[min(xs),min(ys),max(xs)+1,max(ys)+1]
+            if token == '>': line['list_marker_text']='›'
         line['list_marker'] = marker_box
         line['text'] = ' '.join(w['text'] for w in remaining)
         line['box'] = [min(w['box'][0] for w in remaining), min(w['box'][1] for w in remaining),
@@ -346,7 +358,8 @@ def scan_pdf(path):
     if not shutil.which('pdftoppm'):raise ValueError('Poppler local absent')
     # Per-page conversion bounds disk use; never render all pages concurrently.
     from pypdf import PdfReader
-    page_count=len(PdfReader(path).pages)
+    reader=PdfReader(path)
+    page_count=len(reader.pages)
     if page_count>500:raise ValueError('PDF limité à 500 pages')
     all_lines=[]
     with tempfile.TemporaryDirectory(prefix='doctrad-ocr-') as temp:
@@ -356,7 +369,14 @@ def scan_pdf(path):
             from PIL import Image
             with Image.open(prefix.with_suffix('.png')) as image:
                 image_size=list(image.size)
-            for line in recognize(prefix.with_suffix('.png')):
+            from .pdf_native import extract_page
+            native=extract_page(path,page,reader.pages[page-1],image_size)
+            if native and reader.pages[page-1].images and sum(len(line['text'].split()) for line in native) < 30:
+                native=[]  # Sparse captions must not hide a scanned page.
+            if native:
+                with Image.open(prefix.with_suffix('.png')) as raster:
+                    separate_list_markers(native,raster.convert('L'))
+            for line in native or recognize(prefix.with_suffix('.png')):
                 line['page']=page;line['image_size']=image_size;all_lines.append(line)
     return all_lines
 
@@ -375,7 +395,7 @@ def paragraphs(lines):
         index, line = item
         box = line.get('box') or [0, index]
         cell = line.get('table_cell')
-        return (line.get('page') or 0, cell[1] if cell else box[1],
+        return (line.get('page') or 0, (cell[1] if cell else line.get('native_block_order',box[1])),
                 cell[0] if cell else 0, box[1], index)
     ordered = sorted(enumerate(join_label_fragments(lines)), key=reading_order)
     for _, line in ordered:
@@ -396,11 +416,12 @@ def paragraphs(lines):
             merge = (line.get('page') == previous.get('page')
                      and (same_cell or (not line.get('table_cell') and not previous.get('table_cell') and (same_paragraph or continuation)))
                      and abs(box[0]-old[0]) <= max(h, old_h)
-                     and 0 <= box[1]-old[3] <= max(h, old_h)*1.2
+                     and (-max(h,old_h)*.4 if line.get('native_text') else 0) <= box[1]-old[3] <= max(h, old_h)*1.2
                      and min(h, old_h)/max(h, old_h) >= .7
                      and not line.get('list_marker')
                      and not re.match(r'^[•●▪*~–—»«=−-]\s*|^\d+[.)]\s', line['text'])
                      and not last['text'].rstrip().endswith(':')
+                     and not (line.get('native_text') and re.fullmatch(r'[A-Z]+(?:[-/][A-Z0-9]+)+',last['text'].strip()))
                      and not re.match(r'^[A-Z][^:]{0,65}:', line['text']))
         if merge:
             if 'lines' not in previous:
@@ -410,7 +431,7 @@ def paragraphs(lines):
             weight = max(1, len(line['text']))
             previous['confidence'] = (previous['confidence']*old_weight + line['confidence']*weight)/(old_weight+weight)
             previous['minimum_confidence'] = min(previous.get('minimum_confidence', 1), line.get('minimum_confidence', line['confidence']))
-            previous['text'] += ' ' + line['text']
+            previous['text'] += ('' if previous.get('native_text') and previous['text'].endswith('-') else ' ') + line['text']
             previous['box'] = [min(previous['box'][0], box[0]), previous['box'][1],
                                max(previous['box'][2], box[2]), box[3]]
         else:

@@ -40,13 +40,13 @@ DEFAULT_TERMS = {
 }
 # Ces appellations ne sont ni francisées ni remplacées par des synonymes.
 PROTECTED_NAMES = (
-    "TrellisWare", "TSM WAVEFORM", "TSM-X", "TSM",
+    "L3Harris", "FAST. FORWARD.", "TrellisWare", "TSM WAVEFORM", "TSM-X", "TSM",
     "Shadow Radio", "Ghost Radio", "Spirit Radio",
     "Shadow High Power Radio", "Shadow Core Board Module",
     "Ghost Embedded Module", "Tactical Assault Kit",
     "Collins Aerospace", "L3Harris", "Thales Defense & Security",
     "Ultra", "ORION X510", "WinTAK", "ATAK", "MANET", "MELPe",
-    "WREN", "SOCOM", "Protobuf", "Android", "Windows", "NSA", "SDR",
+    "Denali", "Falcon", "SATCOM", "MUOS", "COP", "SAASM", "L-TAC", "RKDU", "HAIPE", "WebUI", "WebKDU", "WREN", "SOCOM", "Protobuf", "Android", "Windows", "NSA", "SDR",
     "When Nothing Else Works",
     "National Security Agency", "WREN Security", "WREN Information Security",
     "SOCOM Tactical Communications", "STC Security",
@@ -78,6 +78,7 @@ def reference_label(text, terms):
         return True
     if re.match(r'^(?:Tel\.?|Phone)\s', text) and ('@' in text or 'www' in text):
         return True
+    if re.fullmatch(r'\s*[A-Z]+(?:[-/][A-Z0-9]+)+\s*',text): return True
     remaining = text
     found = False
     for name in sorted(PROTECTED_NAMES, key=len, reverse=True):
@@ -146,12 +147,23 @@ def terminology(user_terms=None):
 def correct_network_terms(source, target):
     """Correct observed ambiguous translations only in their source context."""
     import re
+    # Restore a dropped minus only at an unambiguous measurement/unit anchor.
+    for match in re.finditer(r'[-−](\d+(?:[.,]\d+)?)\s*([°A-Za-z][°A-Za-z0-9/]*)',source):
+        value,unit=match.groups()
+        number=re.escape(value).replace(r'\.', '[.,]')
+        anchor=number+r'\s*'+re.escape(unit)+r'(?!\w)'
+        if len(re.findall(anchor,source)) == 1:
+            target=re.sub(r'(?<![\w.,+−-])('+anchor+r')',r'-\1',target)
+    for value in re.findall(r'\b(\d+(?:[.,]\d+)?)\s*in³\b',source):
+        number=re.escape(value).replace(r'\.', '[.,]')
+        target=re.sub(r'(?<![\w.,])('+number+r')\s*(?:pouces(?:\s+cubes)?|po|inches|in)(?:\s*3)?(?![\w³])',
+                      r'\1 in³',target,flags=re.I)
     # Keep a single comparison, including when an older translation memory
     # already contains both the French wording and the source operator.
     target = re.sub(r'\bmoins de\s*<\s*(?=\d)', 'moins de ', target, flags=re.I)
     target = re.sub(r'\bplus de\s*>\s*(?=\d)', 'plus de ', target, flags=re.I)
-    for operator, value in re.findall(r'([<>≤≥])\s*(\d+(?:[.,]\d+)?)', source):
-        numeric = r'(?<![\w.,])' + re.escape(value.replace(',', '.')).replace(r'\.', '[.,]') + r'(?![\w.,\d])'
+    for operator, value in re.findall(r'([<>≤≥])\s*([+-]?\d+(?:[.,]\d+)?)', source):
+        numeric = r'(?<![\w.,])' + re.escape(value.replace(',', '.')).replace(r'\.', '[.,]') + r'(?![.,\d])'
         source_values, target_values = list(re.finditer(numeric, source)), list(re.finditer(numeric, target))
         if len(source_values) == len(target_values) == 1:
             anchor = target_values[0]
@@ -160,6 +172,8 @@ def correct_network_terms(source, target):
                       or (operator == '>' and re.search(r'\bplus de$', prefix, re.I)))
             if not verbal and not prefix.endswith(('<', '>', '≤', '≥')):
                 target = target[:anchor.start()] + operator + ' ' + target[anchor.start():]
+    if re.search(r'\bspurious suppression\b',source,re.I):
+        target=re.sub(r'Suppression fallacieuse', 'Réjection des émissions parasites',target,flags=re.I)
     normalized_source = re.sub(r'[^a-z]', '', source.casefold())
     if any(phrase in normalized_source for phrase in ('fastjoinandmerge','fastjoinmerge')):
         target = re.sub(r'(^|[:\n]\s*|^[\s•●▪◦○°*–—»«-]+)(?:Rejoindre|Joindre)\s+et\s+fusionner\s+rapidement\b',
