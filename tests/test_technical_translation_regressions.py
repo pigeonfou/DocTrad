@@ -54,4 +54,17 @@ class TechnicalTranslationRegressions(unittest.TestCase):
             self.assertEqual(correct_network_terms(source,result),result)
         self.assertEqual(correct_network_terms('This is a trademark.','Une marque de commerce.'),'Une marque de commerce.')
 
+    def test_join_ocr_spacing_and_repeated_markers(self):
+        for source in ('Fastjoin and merge','Fast join&merge','Fast join andmerge'):
+            for target in ('• • Rejoindre et fusionner rapidement (1 seconde)',
+                           'Évolutivité : Rejoindre et fusionner rapidement (1 seconde)'):
+                result=correct_network_terms(source,target)
+                self.assertIn('Connexion et fusion rapides des réseaux',result)
+
+    def test_android_registration_matches_source_even_with_ocr_ts(self):
+        target='Android est une marque déposée de Google LLC.'
+        for source in ('Android is a trademark of Google LLC.', 'Android ts a trademark of Google LLC.'):
+            self.assertEqual(correct_network_terms(source,target),'Android est une marque de Google LLC.')
+        self.assertEqual(correct_network_terms('Android is a registered trademark of Google LLC.',target),target)
+
 if __name__=='__main__':unittest.main()

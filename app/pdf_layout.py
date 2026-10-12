@@ -18,7 +18,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from .terminology import preserved_name, reference_label, DEFAULT_TERMS
+from .terminology import preserved_name, reference_label, DEFAULT_TERMS, correct_network_terms
 
 
 @lru_cache(maxsize=4)
@@ -236,6 +236,9 @@ def export_pdf(original, targets, segments, destination):
                     if segment.get('image_size') and list(image.size) != segment['image_size']:
                         raise ValueError('Dimensions OCR différentes du rendu PDF')
                     source_text = segment.get('text', '')
+                    # Also repair a cached or re-exported target at the final
+                    # boundary, using the original source as the only context.
+                    target = correct_network_terms(source_text,target)
                     if index in labels and re.fullmatch(r'[A-Z]{2,6}', source_text.strip()):
                         if target.strip().rstrip('.') == source_text.strip():
                             target = source_text.strip()

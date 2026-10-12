@@ -13,6 +13,17 @@ from app.terminology import reference_label
 
 
 class ReconstructionRegressions(unittest.TestCase):
+    def test_cached_bad_join_wording_is_repaired_at_export(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);source=root/'source.pdf';target=root/'target.pdf'
+            c=canvas.Canvas(str(source),pagesize=(612,792))
+            c.drawString(40,650,'Fast join and merge');c.save()
+            segment=dict(page=1,text='Fast join and merge',confidence=.95,box=[126,420,1600,460])
+            export_pdf(source,['• Rejoindre et fusionner rapidement'],[segment],target)
+            text=PdfReader(target).pages[0].extract_text()
+            self.assertIn('Connexion et fusion rapides des réseaux',text)
+            self.assertNotIn('Rejoindre',text)
+
     def test_small_print_can_be_translated_at_its_original_scale(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp); source=root/'source.pdf'; target=root/'target.pdf'

@@ -160,9 +160,15 @@ def correct_network_terms(source, target):
                       or (operator == '>' and re.search(r'\bplus de$', prefix, re.I)))
             if not verbal and not prefix.endswith(('<', '>', '≤', '≥')):
                 target = target[:anchor.start()] + operator + ' ' + target[anchor.start():]
-    if re.search(r'\bfast\s+join\s+(?:and|&)\s+merge\b', source, re.I):
-        target = re.sub(r'^(\s*[•●▪◦○°*–—»«-]?\s*)(?:Rejoindre|Joindre)\s+et\s+fusionner\s+rapidement\b',
+    normalized_source = re.sub(r'[^a-z]', '', source.casefold())
+    if any(phrase in normalized_source for phrase in ('fastjoinandmerge','fastjoinmerge')):
+        target = re.sub(r'(^|[:\n]\s*|^[\s•●▪◦○°*–—»«-]+)(?:Rejoindre|Joindre)\s+et\s+fusionner\s+rapidement\b',
                         r'\1Connexion et fusion rapides des réseaux', target, flags=re.I)
+    # "ts" is an observed OCR reading of "is" in the small legal notice.
+    # Never remove registration when the source actually says "registered".
+    if re.search(r'\bAndroid\s+(?:is|ts)\s+a\s+trademark\s+of\s+Google\s+LLC\b', source, re.I):
+        target = re.sub(r'(\bAndroid(?:™)?\s+est\s+une\s+marque)\s+déposée(?=\s+de\s+Google\b)',
+                        r'\1', target, flags=re.I)
     if re.search(r'\btrademarks?\s+or\s+registered\s+trademarks?\b', source, re.I):
         target = re.sub(r'marques(?:\s+déposées|\s+de commerce)?\s+(?:ou|et)\s+(?:des\s+)?marques(?:\s+déposées|\s+de commerce)?',
                         'marques ou marques déposées', target, flags=re.I)
