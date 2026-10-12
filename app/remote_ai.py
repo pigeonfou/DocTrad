@@ -20,6 +20,8 @@ def translation_payload(model, text):
         payload["messages"] = [{"role": "user", "content":
             "You are a professional English (en) to French (fr) translator. "
             "Produce only the French translation, without explanations or commentary. "
+            "Preserve every number, range, measurement unit, acronym and product name. "
+            "Keep the classification TOP SECRET unchanged. Never omit SAASM or ISR. "
             "Please translate the following English text into French:\n\n" + text}]
         payload["chat_template_kwargs"] = {"source_lang_code": "en", "target_lang_code": "fr"}
     else:

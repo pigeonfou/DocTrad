@@ -18,6 +18,17 @@ une valeur numérique reste une comparaison. Les exposants des volumes en pouces
 sont conservés et les réparations numériques s'appuient sur des unités uniques.
 Les illustrations et les inscriptions tournées identifiées sont préservées.
 Le masquage natif protège les traits horizontaux longs, notamment les soulignements.
+Dans les cellules natives reconnues, les rectangles du texte source sont remplis
+avec la couleur de fond, sans toucher les bordures, pour supprimer les lettres
+pâles résiduelles.
+
+Les plages positives comme `30-2600 MHz` ne sont pas des valeurs négatives.
+Les dimensions à trois axes retrouvent leur unité seulement lorsque les trois
+valeurs correspondent à un unique groupe source/cible. La classification
+`TOP SECRET` reste inchangée. Si une traduction omet un nom ou un sigle protégé,
+une seconde traduction conserve les données techniques hors de l'inférence.
+Une entrée de mémoire ayant perdu une désignation protégée est retraduite ;
+les remplacements explicites du glossaire restent prioritaires.
 
 L'export garde les images comme fond de page : il ne reconstruit pas les objets
 vectoriels du document original. Les photographies derrière un texte et les fonds

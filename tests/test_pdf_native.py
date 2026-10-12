@@ -7,6 +7,27 @@ from app.ocr import scan_pdf,paragraphs,separate_list_markers
 from app.pdf_layout import clean_text_patch
 
 class NativePdfTests(unittest.TestCase):
+    def test_translated_native_cell_leaves_no_old_second_line(self):
+        import subprocess
+        from app.pdf_layout import export_pdf
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'source.pdf';out=Path(temp)/'translated.pdf'
+            c=canvas.Canvas(str(path),pagesize=(612,792))
+            c.setFillColorRGB(.9,.9,.9)
+            c.rect(30,600,120,60,fill=1);c.rect(150,600,300,60,fill=1)
+            c.setFillColorRGB(.5,.5,.5);c.setFont('Helvetica',10)
+            c.drawString(155,642,'First source line')
+            c.drawString(155,625,'Second source line');c.save()
+            blocks=paragraphs(scan_pdf(path));body=next(x for x in blocks if 'Second' in x['text'])
+            old=body['lines'][1]['box']
+            export_pdf(path,['Texte traduit' for x in blocks],blocks,out)
+            subprocess.run(['pdftoppm','-scale-to','2500','-singlefile','-png',str(out),str(Path(temp)/'render')],check=True,capture_output=True)
+            image=Image.open(Path(temp)/'render.png').convert('RGB')
+            patch=image.crop(tuple(old))
+            # The translated text occupies only the first line. Any dark pixels
+            # in the old second line would be surviving source letters.
+            self.assertTrue(all(min(pixel)>210 for pixel in patch.getdata()))
+
     def test_native_cells_numbers_fonts_and_paragraphs(self):
         with tempfile.TemporaryDirectory() as temp:
             path=Path(temp)/'source.pdf';c=canvas.Canvas(str(path),pagesize=(612,792))

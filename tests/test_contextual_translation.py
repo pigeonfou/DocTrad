@@ -67,8 +67,9 @@ def test_reference_only_labels_never_translate_product_names(monkeypatch):
 def test_reference_names_do_not_bypass_real_prose_or_user_glossary(monkeypatch):
     engine = TransformersEngine(); seen = []
     monkeypatch.setattr(engine, '_translate_prose', lambda text: seen.append(text) or 'La radio fonctionne.')
-    assert engine.translate_contextual('Ghost Radio operates.', terminology()) == 'La radio fonctionne.'
-    assert seen == ['Ghost Radio operates.']
+    target = engine.translate_contextual('Ghost Radio operates.', terminology())
+    assert 'Ghost Radio' in target
+    assert seen == ['Ghost Radio operates.', 'operates.']
     assert engine.translate_contextual('Ghost Radio', terminology({'Ghost Radio':'Nom choisi'})) == 'Nom choisi'
 
 

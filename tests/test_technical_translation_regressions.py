@@ -6,6 +6,40 @@ from app.ocr import recover_legal_small_print
 from app.terminology import correct_network_terms
 
 class TechnicalTranslationRegressions(unittest.TestCase):
+    def test_ranges_never_acquire_a_negative_endpoint(self):
+        for source in ('30-2600 MHz','30 - 2600 MHz','30–2600 MHz'):
+            self.assertEqual(correct_network_terms(source,'30 à 2600 MHz'),'30 à 2600 MHz')
+            self.assertEqual(correct_network_terms(source,'30 à -2600 MHz'),'30 à 2600 MHz')
+        self.assertEqual(correct_network_terms('Value -53 dBc','Valeur 53 dBc'),'Valeur -53 dBc')
+
+    def test_dimensions_recover_units_without_changing_axes_or_values(self):
+        source='3.50H x 7.25W x 14.31D in (with battery)'
+        target='3,50H x 7,25L x 14,31P (avec batterie)'
+        result=correct_network_terms(source,target)
+        self.assertEqual(result,'3,50H x 7,25L x 14,31P in (avec batterie)')
+        self.assertEqual(correct_network_terms(source,result),result)
+        self.assertEqual(correct_network_terms(source,'3,50H x 7,25L x 15,31P'),'3,50H x 7,25L x 15,31P')
+
+    def test_classification_and_omitted_acronyms(self):
+        from app.translation import TransformersEngine
+        from app.terminology import terminology
+        self.assertEqual(correct_network_terms('Up to TOP SECRET','Jusqu’à CONFIDENTIEL'),'Jusqu’à TOP SECRET')
+        engine=TransformersEngine();seen=[]
+        def prose(text):
+            seen.append(text)
+            return {'Internal SAASM GPS and ISR video.':'GPS interne et vidéo.',
+                    'Internal':'Interne','GPS and':'GPS et','video.':'vidéo.'}.get(text,text)
+        engine._translate_prose=prose
+        result=engine.translate_contextual('Internal SAASM GPS and ISR video.',terminology())
+        self.assertIn('SAASM',result);self.assertIn('ISR',result)
+        self.assertFalse(any('ZXQ' in text for text in seen))
+
+    def test_cached_name_validation_honors_glossary_and_repeated_names(self):
+        from app.terminology import missing_names
+        self.assertEqual(missing_names('SAASM GPS and ISR video','GPS et vidéo'),['ISR','SAASM'])
+        self.assertEqual(missing_names('ISR video','vidéo RSR',{'ISR':'RSR'}),[])
+        self.assertEqual(missing_names('ISR and ISR','ISR'),['ISR'])
+
     def test_signed_comparison_and_cubic_unit_are_preserved(self):
         self.assertEqual(correct_network_terms('> -53dBc','53 dBc'),'> -53 dBc')
         self.assertEqual(correct_network_terms('167 in³ (without battery)','167 pouces (sans batterie)'),

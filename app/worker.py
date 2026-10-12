@@ -63,7 +63,9 @@ def _run_job(job_id):
                 segment_started = time.monotonic()
                 record(job_id, "segment_started", segment=i + 1, characters=len(text))
                 memory = s.scalar(select(Memory).where(Memory.owner_id == job.owner_id, Memory.source == text).order_by(Memory.id.desc()).limit(1))
-                if memory: translated = memory.target
+                from .terminology import correct_network_terms, missing_names
+                cached = correct_network_terms(text,memory.target) if memory else None
+                if cached is not None and not missing_names(text,cached,terms): translated = cached
                 else:
                     with httpx.Client(timeout=300, trust_env=False) as client:
                         response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[text], "contextual":True, "glossary":terms})
@@ -78,7 +80,6 @@ def _run_job(job_id):
                             raise InferenceError(diagnostic["code"], diagnostic)
                         translated = response.json()["texts"][0]
                 # Apply deterministic repairs to cached translations as well.
-                from .terminology import correct_network_terms
                 translated = correct_network_terms(text, translated)
                 warnings = list(dict.fromkeys(check(text, translated) + audit_translation(text, translated)))
                 if items[i]["confidence"] < 0.85: warnings.append("OCR incertain : vérification nécessaire")

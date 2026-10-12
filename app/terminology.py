@@ -4,6 +4,13 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "TOP SECRET": "TOP SECRET",
+    "KEY BENEFITS": "AVANTAGES CLÉS",
+    "INDUSTRY-LEADING": "DE PREMIER PLAN",
+    "WAVEFORM PORTFOLIO AND INTEROPERABILITY": "GAMME DE FORMES D’ONDE ET INTEROPÉRABILITÉ",
+    "UHF SATCOM Waveforms": "Formes d’onde SATCOM UHF",
+    "Channel Spacing/Bandwidth": "Espacement des canaux / largeur de bande",
+    "INDUSTRY-LEADING WAVEFORM PORTFOLIO AND INTEROPERABILITY": "UNE GAMME DE FORMES D’ONDE DE PREMIER PLAN ET UNE GRANDE INTEROPÉRABILITÉ",
     "PLI": "PLI",
     "Network Resilience": "Résilience du réseau",
     "Scalability and Spectrum Efficiency": "Évolutivité et efficacité spectrale",
@@ -46,7 +53,7 @@ PROTECTED_NAMES = (
     "Ghost Embedded Module", "Tactical Assault Kit",
     "Collins Aerospace", "L3Harris", "Thales Defense & Security",
     "Ultra", "ORION X510", "WinTAK", "ATAK", "MANET", "MELPe",
-    "Denali", "Falcon", "SATCOM", "MUOS", "COP", "SAASM", "L-TAC", "RKDU", "HAIPE", "WebUI", "WebKDU", "WREN", "SOCOM", "Protobuf", "Android", "Windows", "NSA", "SDR",
+    "TOP SECRET", "ISR", "Denali", "Falcon", "SATCOM", "MUOS", "COP", "SAASM", "L-TAC", "RKDU", "HAIPE", "WebUI", "WebKDU", "WREN", "SOCOM", "Protobuf", "Android", "Windows", "NSA", "SDR",
     "When Nothing Else Works",
     "National Security Agency", "WREN Security", "WREN Information Security",
     "SOCOM Tactical Communications", "STC Security",
@@ -143,17 +150,54 @@ def terminology(user_terms=None):
     return terms
 
 
+def required_names(source, terms=None):
+    """Names present in the source, honoring explicit glossary overrides."""
+    import re
+    terms=terms or {}
+    return {name:terms.get(name,name) for name in PROTECTED_NAMES
+            if re.search(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source)}
+
+
+def missing_names(source,target,terms=None):
+    import re
+    return [name for name,value in required_names(source,terms).items()
+            if len(re.findall(r'(?<!\w)'+re.escape(value)+r'(?!\w)',target))
+            < len(re.findall(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source))]
+
 
 def correct_network_terms(source, target):
     """Correct observed ambiguous translations only in their source context."""
     import re
     # Restore a dropped minus only at an unambiguous measurement/unit anchor.
-    for match in re.finditer(r'[-−](\d+(?:[.,]\d+)?)\s*([°A-Za-z][°A-Za-z0-9/]*)',source):
+    for match in re.finditer(r'(?<![\w.,])[-−](\d+(?:[.,]\d+)?)\s*([°A-Za-z][°A-Za-z0-9/]*)',source):
+        # A spaced range separator (30 - 2600 MHz) is not a sign either.
+        if re.search(r'\d\s*$',source[:match.start()]):
+            continue
         value,unit=match.groups()
         number=re.escape(value).replace(r'\.', '[.,]')
         anchor=number+r'\s*'+re.escape(unit)+r'(?!\w)'
         if len(re.findall(anchor,source)) == 1:
             target=re.sub(r'(?<![\w.,+−-])('+anchor+r')',r'-\1',target)
+    # Repair the erroneous minus in translations cached before this fix.
+    for lower,upper,unit in re.findall(r'(?<![\w.,+-])(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)\s*(MHz|GHz|Hz)\b',source):
+        low=re.escape(lower).replace(r'\.', '[.,]')
+        high=re.escape(upper).replace(r'\.', '[.,]')
+        target=re.sub(r'(?<![\w.,])('+low+r'\s*(?:à|to|[-–—])\s*)[-−]('+high+r'\s*'+unit+r'\b)',r'\1\2',target)
+    # A classification must never be downgraded by a synonymous translation.
+    classification=r'\b(?:CONFIDENTIEL|TRÈS SECRET|ULTRA[- ]SECRET)\b'
+    if ('TOP SECRET' in source and 'TOP SECRET' not in target
+            and not re.search(r'\bCONFIDENTIAL\b',source,re.I)
+            and len(re.findall(classification,target,re.I)) == source.count('TOP SECRET')):
+        target=re.sub(classification,'TOP SECRET',target,flags=re.I)
+    # Restore the unit after a unique three-axis dimension, allowing French
+    # axis letters and decimal commas without changing any numeric value.
+    dimension=r'(\d+(?:[.,]\d+)?)\s*[HWDLPhwdlp]\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[HWDLPhwdlp]\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[HWDLPhwdlp]'
+    for match in re.finditer(dimension+r'\s*(in|cm|mm)\b',source):
+        values=match.groups()[:3];unit=match[4]
+        pieces=[re.escape(v).replace(r'\.', '[.,]')+r'\s*[HWDLPhwdlp]' for v in values]
+        anchor=r'(?<![\w.,])'+r'\s*[x×]\s*'.join(pieces)
+        if len(list(re.finditer(anchor,source))) == len(list(re.finditer(anchor,target))) == 1:
+            target=re.sub('('+anchor+r')(?!\w|\s*(?:in|cm|mm)\b)',lambda m:m[1]+' '+unit,target)
     for value in re.findall(r'\b(\d+(?:[.,]\d+)?)\s*in³\b',source):
         number=re.escape(value).replace(r'\.', '[.,]')
         target=re.sub(r'(?<![\w.,])('+number+r')\s*(?:pouces(?:\s+cubes)?|po|inches|in)(?:\s*3)?(?![\w³])',

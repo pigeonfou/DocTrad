@@ -87,6 +87,14 @@ class TransformersEngine(TranslationEngine):
             translated = pattern.sub(lambda match: terms[match.group()], translated)
         from .terminology import correct_network_terms
         translated = correct_network_terms(text, translated)
+        # Keep full-sentence inference first. If it loses a protected name,
+        # retry once with technical spans kept outside inference altogether.
+        # Random placeholders are split by translate() and never sent upstream.
+        from .terminology import required_names, missing_names
+        if missing_names(text,translated,terms):
+            from .quality import protect, restore
+            protected, mapping = protect(text, required_names(text,terms))
+            translated = correct_network_terms(text, restore(self.translate(protected), mapping))
         # Glossary headings at the start of a colon-separated paragraph keep
         # their preferred wording without fragmenting the model's source.
         source_heading, separator, _ = text.partition(':')

@@ -457,7 +457,15 @@ def export_pdf(original, targets, segments, destination):
                             a,b,c,d = line['box']
                             bounds = (max(0,int(a)-3),max(0,int(b)-3),
                                       min(image.width,int(c)+3),min(image.height,int(d)+3))
-                            cleaned = clean_text_patch(image,bounds,background,preserve_rules=bool(segment.get('native_text')))
+                            # Native cell bounds are verified from PDF vectors.
+                            # Fill only inside the border: selective ink detection
+                            # can leave pale letters or mistake a short word for a rule.
+                            if cell and segment.get('native_text'):
+                                bounds=(max(bounds[0],int(cell[0])+3),max(bounds[1],int(cell[1])+3),
+                                        min(bounds[2],int(cell[2])-3),min(bounds[3],int(cell[3])-3))
+                                cleaned=Image.new('RGB',(bounds[2]-bounds[0],bounds[3]-bounds[1]),background)
+                            else:
+                                cleaned = clean_text_patch(image,bounds,background,preserve_rules=bool(segment.get('native_text')))
                             pdf.drawImage(ImageReader(cleaned),bounds[0]*sx,height-bounds[3]*sy,
                                           width=(bounds[2]-bounds[0])*sx,height=(bounds[3]-bounds[1])*sy)
                             cleaned.close()
