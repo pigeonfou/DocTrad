@@ -9,7 +9,7 @@ requires-python = ">=3.12"
 dependencies = ["fastapi", "uvicorn", "sqlalchemy", "psycopg[binary]", "python-multipart", "itsdangerous", "argon2-cffi", "httpx", "python-docx", "python-pptx", "pypdf", "reportlab", "Pillow", "jinja2"]
 [project.optional-dependencies]
 translation = ["torch", "transformers", "sentencepiece", "sacremoses", "safetensors", "huggingface-hub"]
-test = ["pytest"]
+test = ["pytest", "PyMuPDF==1.26.6"]
 [project.scripts]
 docutranslate = "app.cli:main"
 [tool.setuptools.packages.find]
@@ -19,3 +19,4 @@ app = ["templates/*.html", "static/*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+

@@ -1,15 +1,11 @@
 name: DocTrad checks
 on:
   push:
-    paths-ignore:
-      - '.github/workflows/models.yml'
-      - '.github/workflows/tests.yml'
   pull_request:
 permissions:
   contents: read
 jobs:
   tests:
-    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || github.event.repository.private != true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -19,6 +15,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng poppler-utils fonts-dejavu-core postgresql
       - run: python -m venv .venv
       - run: .venv/bin/pip install -r requirements.lock
+      - run: .venv/bin/pip install PyMuPDF==1.26.6
       - run: .venv/bin/pip install --no-deps --no-build-isolation -e .
       - name: Prepare native PostgreSQL test database
         run: |
@@ -30,56 +27,3 @@ jobs:
           TEST_DATABASE_URL: postgresql+psycopg://doctrad_test:ephemeral-ci-password@127.0.0.1/doctrad_test
       - run: .venv/bin/pip check
       - run: bash -n install.sh scripts/*.sh
-
-  local-tests:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.repository.private == true
-    runs-on: [self-hosted, Linux, X64, doctrad-deploy]
-    timeout-minutes: 45
-    concurrency:
-      group: doctrad-local-tests
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Prepare isolated Python environment
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 --version
-          command -v tesseract
-          command -v pdftotext
-          TEST_VENV=$(mktemp -d "$RUNNER_TEMP/doctrad-venv.XXXXXX")
-          echo "TEST_VENV=$TEST_VENV" >> "$GITHUB_ENV"
-          python3 -m venv "$TEST_VENV"
-          "$TEST_VENV/bin/pip" install --disable-pip-version-check -r requirements.lock
-          "$TEST_VENV/bin/pip" install --no-deps --no-build-isolation -e .
-      - name: Test with a temporary PostgreSQL cluster
-        shell: bash
-        run: |
-          set -euo pipefail
-          PG_BIN=$(find /usr/lib/postgresql -path '*/bin/initdb' -type f | sort -V | tail -n 1)
-          test -n "$PG_BIN"
-          PG_BIN=$(dirname "$PG_BIN")
-          TEST_CLUSTER=$(mktemp -d /tmp/doctrad-ci.XXXXXX)
-          cleanup() {
-            "$PG_BIN/pg_ctl" -D "$TEST_CLUSTER/db" -m immediate stop >/dev/null 2>&1 || true
-            rm -rf "$TEST_CLUSTER"
-          }
-          trap cleanup EXIT
-          mkdir "$TEST_CLUSTER/socket"
-          "$PG_BIN/initdb" -D "$TEST_CLUSTER/db" -A trust -U doctrad_ci --no-locale --encoding=UTF8
-          "$PG_BIN/pg_ctl" -D "$TEST_CLUSTER/db" -l "$TEST_CLUSTER/postgres.log" -o "-k $TEST_CLUSTER/socket -c listen_addresses=''" -w start
-          "$PG_BIN/createdb" -h "$TEST_CLUSTER/socket" -U doctrad_ci doctrad_test
-          export TEST_DATABASE_URL="postgresql+psycopg://doctrad_ci@/doctrad_test?host=$TEST_CLUSTER/socket"
-          "$TEST_VENV/bin/pytest" -q
-          "$TEST_VENV/bin/pip" check
-          bash -n install.sh
-          for script in scripts/*.sh; do bash -n "$script"; done
-      - name: Remove temporary Python environment
-        if: always()
-        shell: bash
-        run: |
-          if [[ -n "${TEST_VENV:-}" && "$TEST_VENV" == "$RUNNER_TEMP"/doctrad-venv.* ]]; then
-            rm -rf "$TEST_VENV"
-          fi

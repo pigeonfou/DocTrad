@@ -14,8 +14,11 @@ if os.environ.get("TEST_DATABASE_URL"):
 @pytest.fixture(autouse=True)
 def database():
     from app.db import Base,engine
+    from app.auth import attempts
+    attempts.clear()
     Base.metadata.drop_all(engine); Base.metadata.create_all(engine)
     yield
+    attempts.clear()
 
 @pytest.fixture
 def client():
@@ -32,3 +35,4 @@ def block_external_network(monkeypatch):
             raise AssertionError('External network access forbidden during tests')
         return original(sock,address)
     monkeypatch.setattr(socket.socket,'connect',connect)
+

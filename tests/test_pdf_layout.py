@@ -39,7 +39,9 @@ def test_layout_retains_pages_artwork_and_translated_text(tmp_path):
         assert 'Alimentation : 12 VDC.' in page.extract_text()
         assert len(page.images) >= 1
         # Full original page artwork is retained, including the blue figure.
-        im = page.images[0].image.convert('RGB')
+        # Image enumeration is not paint order: a small text mask may precede
+        # the page background in the PDF resource dictionary.
+        im = max((entry.image for entry in page.images),key=lambda image:image.width*image.height).convert('RGB')
         assert im.getpixel((int(450/612*im.width), int((792-450)/792*im.height))) == (0, 76, 204)
 
 
@@ -121,7 +123,7 @@ def test_multiline_paragraph_wraps_and_preserves_artwork(tmp_path):
     assert not report['warnings']
     page = PdfReader(destination).pages[0]
     assert ' '.join(page.extract_text().split()) == target
-    image = page.images[0].image.convert('RGB')
+    image = max((entry.image for entry in page.images),key=lambda image:image.width*image.height).convert('RGB')
     assert image.getpixel((int(450/612*image.width),int((792-690)/792*image.height))) == (0,76,204)
 
 
@@ -150,3 +152,4 @@ def test_real_table_continuations_are_grouped_in_their_cells():
     assert any(t.startswith('Supports up to 8 spatial MANET hops') and t.endswith('per hop in Long Range Mode') for t in texts)
     assert any(t.startswith('TrellisWare radios can be left unattended') and t.endswith('with SOCOM Tactical Communications (STC) Security') for t in texts)
     assert not any('Supported Software Defined' in t and 'TrellisWare radio products' in t for t in texts)
+

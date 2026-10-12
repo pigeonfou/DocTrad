@@ -11,16 +11,28 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: github.event.repository.private == true && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository
+    if: github.repository == 'pigeonfou/DocTrad' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: [self-hosted, Linux, X64, doctrad-deploy]
     timeout-minutes: 45
     steps:
+      - name: Skip superseded tested commits
+        id: current
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
+            const current = branch.data.commit.sha === context.payload.workflow_run.head_sha;
+            core.setOutput('deploy', String(current));
+            if (!current) core.notice('A newer commit exists on main; this deployment is skipped.');
       - name: Deploy exact tested commit
+        if: steps.current.outputs.deploy == 'true'
         env:
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: sudo -n /usr/local/sbin/docutranslate-deploy "$TESTED_SHA"
+        run: sudo -n /usr/local/sbin/oneforall-doctrad-deploy "$TESTED_SHA"
       - name: Show service state
-        run: sudo -n /usr/local/sbin/docutranslate-deploy --status
+        if: steps.current.outputs.deploy == 'true'
+        run: sudo -n /usr/local/sbin/oneforall-doctrad-deploy --status
       - name: Diagnostic on failure
         if: failure()
-        run: sudo -n /usr/local/sbin/docutranslate-deploy --logs
+        run: sudo -n /usr/local/sbin/oneforall-doctrad-deploy --logs
+
