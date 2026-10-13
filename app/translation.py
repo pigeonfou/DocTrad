@@ -117,6 +117,13 @@ class TransformersEngine(TranslationEngine):
 
 class RemoteEngine(TransformersEngine):
     """Reuse terminology protection, with inference on an explicitly configured LAN host."""
+    def translate_contextual(self, text, glossary=None):
+        self.context_terms = glossary or {}
+        try:
+            return super().translate_contextual(text, glossary)
+        finally:
+            self.context_terms = {}
+
     def load(self, manifest):
         from .remote_ai import settings, manifest as configured_manifest
         self.settings = settings()
@@ -157,7 +164,7 @@ class RemoteEngine(TransformersEngine):
                 return None
         from .remote_ai import translation_payload, ensure_model
         ensure_model(self.settings, unload_images=False)
-        payload = translation_payload(self.settings["model"], text)
+        payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None))
         if self.settings.get("auto_load"):
             payload["max_tokens"] = min(payload["max_tokens"], self.settings["context_length"] // 2)
         if retry and "translategemma" in self.settings["model"].lower():

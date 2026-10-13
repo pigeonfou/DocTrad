@@ -177,3 +177,16 @@ class SourceScopeTests(unittest.TestCase):
         self.assertEqual(inference_defects('Compact dual-channel device', 'Appareil compact 双通道'), ['foreign_script'])
         self.assertEqual(inference_defects('12 dB SINAD', '12 dB SINAD. SAASM ISR.'), ['invented_identifier'])
         self.assertEqual(inference_defects('SAASM GPS up to TOP SECRET', 'GPS SAASM jusqu’à TOP SECRET'), [])
+
+
+def test_terminology_hints_use_only_current_source_chunk():
+    payload = remote_ai.translation_payload('translategemma', 'Advanced crossbanding',
+        {'crossbanding': 'interconnexion interbande', 'TOP SECRET': 'TOP SECRET', 'Voice': 'Voix'})
+    prompt = payload['messages'][0]['content']
+    assert 'interconnexion interbande' in prompt
+    assert 'TOP SECRET' not in prompt
+    assert 'Voix' not in prompt
+    engine = RemoteEngine()
+    with patch.object(engine, '_translate_prose', return_value='Une traduction'):
+        engine.translate_contextual('Another sentence', {'Voice': 'Voix'})
+    assert engine.context_terms == {}
