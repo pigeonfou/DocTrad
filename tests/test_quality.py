@@ -53,3 +53,12 @@ def test_known_uppercase_heading_translation_is_not_a_changed_reference():
     for source in ('SCAN ME', 'TECHNICAL FEATURES OF THE', 'THE TRELLISWARE TSM WAVEFORM'):
         assert not check(source, terminology()[source])
     assert check('12 VDC', '12 VAC')
+
+
+def test_modulation_measurement_signs_are_not_part_numbers():
+    assert not check('FM-118 dBm @12 dB SINAD AM –110 dBm', 'FM : -118 dBm @ 12 dB SINAD AM : -110 dBm')
+    assert check('FM-118 dBm', 'FM : 118 dBm')
+    assert check('FM-118', 'FM-119')
+    assert check('5 kHz', '5 MHz')
+    assert check('250 mW', '250 W')
+    assert check('> -53 dBc', '-53 dBc')

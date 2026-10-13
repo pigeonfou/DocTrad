@@ -3,7 +3,7 @@ import re
 import secrets
 from collections import Counter
 
-TECH = re.compile(r"(?<!\w)(?:ISO\s+\d+|[+-]?\d+(?:[.,]\d+)?\s*(?:VDC|VAC|mA|kV|kW|MHz|GHz|Nm|mm|cm|kg|°C|V|A|W|Hz|%)(?!\w)|[A-Z]+[A-Z0-9]*(?:[-][A-Z0-9]+)+|[A-Za-z]+\d+[A-Za-z0-9]*|[A-Z]{2,}s?|RoHS|REACH)(?!\w)")
+TECH = re.compile(r"(?<!\w)(?:ISO\s+\d+|[+-]?\d+(?:[.,]\d+)?\s*(?:dBm|dBc|dB|kHz|mW|VDC|VAC|mA|kV|kW|MHz|GHz|Nm|mm|cm|kg|°C|V|A|W|Hz|%)(?!\w)|[A-Z]+[A-Z0-9]*(?:[-][A-Z0-9]+)+|[A-Za-z]+\d+[A-Za-z0-9]*|[A-Z]{2,}s?|RoHS|REACH)(?!\w)")
 NUMBERS = re.compile(r"(?<![\w])[+-]?\d+(?:[.,]\d+)?")
 
 
@@ -42,14 +42,20 @@ def restore(text, mapping):
         text = text.replace(token, value)
     return text
 
+def measurement_qa_text(text):
+    """A modulation prefix followed by dBm is a measurement, not a part number."""
+    text = text.replace('−', '-')
+    return re.sub(r'\b(FM|AM)\s*[-–]\s*(?=\d+(?:[.,]\d+)?\s*dBm\b)', r'\1 : -', text)
+
 def check(source, target):
+    source, target = measurement_qa_text(source), measurement_qa_text(target)
     warnings = []
     # French decimal commas represent the same technical value.
     def canonical(values):
         return Counter(re.sub(r"\s+", "", re.sub(r"(?<=\d),(?=\d)", ".", value)) for value in values)
     if canonical(NUMBERS.findall(source)) != canonical(NUMBERS.findall(target)):
         warnings.append("Nombre ajouté, absent ou modifié")
-    comparisons = r'[<>≤≥]\s*\d+(?:[.,]\d+)?'
+    comparisons = r'[<>≤≥]\s*[+-]?\d+(?:[.,]\d+)?'
     if canonical(re.findall(comparisons, source)) != canonical(re.findall(comparisons, target)):
         warnings.append("Comparaison chiffrée absente ou modifiée")
     from .terminology import DEFAULT_TERMS

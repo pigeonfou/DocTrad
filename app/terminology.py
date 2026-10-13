@@ -47,7 +47,7 @@ DEFAULT_TERMS = {
     "Wideband Waveforms": "Formes d’onde à large bande",
     "Spurious Suppression": "Réjection des parasites",
     "Harmonic and Spurious Suppression": "Réjection harmoniques / parasites",
-    "Sand/Dust/Salt/Fog/Rain": "Sable/poussière/sel/brouillard/pluie",
+    "Sand/Dust/Salt/Fog/Rain": "Sable / poussière / sel / brouillard / pluie",
     "crossbanding": "interconnexion interbande",
     "TOP SECRET": "TOP SECRET",
     "KEY BENEFITS": "AVANTAGES CLÉS",

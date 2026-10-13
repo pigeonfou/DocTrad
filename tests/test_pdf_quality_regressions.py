@@ -73,3 +73,24 @@ class PDFQualityRegressions(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_unchanged_native_table_label_is_visible_and_uses_the_label_font(tmp_path):
+    import re
+    source=tmp_path/'source.pdf';target=tmp_path/'target.pdf'
+    pdf=canvas.Canvas(str(source),pagesize=(612,792))
+    pdf.setFont('Helvetica',7)
+    pdf.drawString(40,740,'Dimensions');pdf.drawString(175,740,'7 cm');pdf.save()
+    ratio=2500/792
+    def scaled(box):return [round(v*ratio) for v in box]
+    common=dict(page=1,confidence=.99,native_text=True,source_font_size=7,source_bold=False)
+    segments=[dict(common,text='Dimensions',box=scaled([40,46,86,54]),table_cell=scaled([35,32,170,67])),
+              dict(common,text='7 cm',box=scaled([175,46,200,54]),table_cell=scaled([170,32,310,67]))]
+    report=export_pdf(source,['Dimensions','7 cm'],segments,target)
+    page=PdfReader(target).pages[0]
+    blocks=re.findall(r'BT(.*?)ET',page.get_contents().get_data().decode('latin-1'),re.S)
+    label=next(block for block in blocks if '(Dimensions)' in block)
+    assert '3 Tr' not in label
+    font_name=re.findall(r'/(\S+)\s+[\d.]+\s+Tf',label)[-1]
+    assert 'Bold' in str(page['/Resources']['/Font']['/'+font_name].get_object()['/BaseFont'])
+    assert report['typography_groups'][0]['role']=='table_labels'

@@ -156,7 +156,7 @@ def clean_text_patch(image, box, background, foreground=None, preserve_rules=Fal
     return patch
 
 
-def harmonize_text_draws(draws, segments, source_sizes, labels):
+def harmonize_text_draws(draws, segments, source_sizes, labels, report=None):
     """Use a shared fitted size for body text with the same source typography.
 
     Never enlarge a fitted paragraph past its verified bounds. Exceptional
@@ -166,16 +166,20 @@ def harmonize_text_draws(draws, segments, source_sizes, labels):
     for draw in draws:
         x,y,font,size,text,scale,colour,invisible,index = draw
         source = source_sizes.get(index)
-        if invisible or source is None or index in labels or heading(segments[index]): continue
+        if invisible or source is None or (index not in labels and heading(segments[index])): continue
         if size < source*.8: continue
-        key = (bool(segments[index].get('table_cell')),font,source)
+        key = ('label' if index in labels else bool(segments[index].get('table_cell')),font,source)
         groups.setdefault(key,[]).append(draw)
     common = {key:min(d[3] for d in values) for key,values in groups.items()}
+    if report is not None:
+        report.setdefault('typography_groups', []).extend(
+            dict(role='table_labels', font_size=round(size,2), source_font_size=key[2], draws=len(groups[key]))
+            for key,size in common.items() if key[0]=='label')
     result = []
     for draw in draws:
         x,y,font,size,text,scale,colour,invisible,index = draw
-        key = (bool(segments[index].get('table_cell')),font,source_sizes.get(index))
-        if not invisible and index not in labels and not heading(segments[index]) and key in common and size >= key[2]*.8:
+        key = ('label' if index in labels else bool(segments[index].get('table_cell')),font,source_sizes.get(index))
+        if not invisible and (index in labels or not heading(segments[index])) and key in common and size >= key[2]*.8:
             fitted = common[key]
             # Keep the top edge aligned when a baseline's font becomes smaller.
             y += ink_metrics(text,font,size)[0]-ink_metrics(text,font,fitted)[0]
@@ -351,7 +355,7 @@ def export_pdf(original, targets, segments, destination):
                             baseline=height-(b+d)/2*sy+(descent-ascent)*size/2
                             marker_draws[index]=((a+c)/2*sx-advance/2,baseline,marker_font,size,
                                                  glyph,1,colour,False,index)
-                    if target == source_text and (segment.get('native_text') or reference_label(source_text, {})):
+                    if target == source_text and index not in labels and (segment.get('native_text') or reference_label(source_text, {})):
                         # Keep unchanged reference artwork exact while making it
                         # searchable. Painting a contact line can destroy a nearby
                         # postal line when their OCR rectangles overlap.
@@ -504,7 +508,7 @@ def export_pdf(original, targets, segments, destination):
                     text_draws.append((x,baseline,font,size,target,1,foreground,False,index))
                 # Every source mask must precede every translated glyph. OCR
                 # boxes can overlap; later masks must not clip earlier text.
-                text_draws = harmonize_text_draws(text_draws,segments,source_sizes,labels)
+                text_draws = harmonize_text_draws(text_draws, segments, source_sizes, labels, report)
                 ordered_draws=[]
                 for draw in text_draws:
                     marker_draw=marker_draws.pop(draw[-1],None)
