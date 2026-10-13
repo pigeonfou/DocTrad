@@ -51,7 +51,7 @@ class TransformersEngine(TranslationEngine):
             output.append(leading + self._translate_prose(part.strip()).strip() + trailing)
         return "".join(output)
 
-    def translate_contextual(self, text, glossary=None):
+    def translate_contextual(self, text, glossary=None, context=None):
         """Translate complete source sentences, including their technical context.
 
         Exact glossary entries bypass inference. Inline replacements apply only
@@ -129,12 +129,14 @@ class TransformersEngine(TranslationEngine):
 
 class RemoteEngine(TransformersEngine):
     """Reuse terminology protection, with inference on an explicitly configured LAN host."""
-    def translate_contextual(self, text, glossary=None):
+    def translate_contextual(self, text, glossary=None, context=None):
         self.context_terms = glossary or {}
+        self.document_context = context or {}
         try:
             return super().translate_contextual(text, glossary)
         finally:
             self.context_terms = {}
+            self.document_context = {}
 
     def load(self, manifest):
         from .remote_ai import settings, manifest as configured_manifest
@@ -187,17 +189,14 @@ class RemoteEngine(TransformersEngine):
                 return None
         from .remote_ai import translation_payload, ensure_model
         ensure_model(self.settings, unload_images=False)
-        payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None))
+        payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None), getattr(self, "document_context", None))
         if self.settings.get("auto_load"):
             payload["max_tokens"] = min(payload["max_tokens"], self.settings["context_length"] // 2)
         if retry and "translategemma" in self.settings["model"].lower():
             payload["repetition_penalty"] = 1.1
             payload["max_tokens"] = 512
-            from .terminology import required_names
-            recovery_names = list(required_names(text, getattr(self, "context_terms", None)).values())
             payload["messages"][0]["content"] = (
-                "Preserve these source identifiers exactly: " + json.dumps(recovery_names, ensure_ascii=False)
-                + ". Return one complete French translation only. Never omit or add identifiers.\n"
+                "Translate the complete source faithfully; return only its translation.\n"
                 + payload["messages"][0]["content"])
 
         key = Path(self.settings["key_file"]).read_text().strip()
@@ -258,7 +257,8 @@ class RemoteEngine(TransformersEngine):
 class Runtime:
     """A single process owns weights; all switches and inference are serialized."""
     def __init__(self): self.engine = TransformersEngine(); self.lock = RLock()
-    def translate(self, manifest, texts, *, contextual=False, glossary=None):
+    def translate(self, manifest, texts, *, contextual=False, glossary=None, contexts=None):
+        if contexts and len(contexts) != len(texts): raise ValueError("Contextes incohérents")
         with self.lock:
             old = self.engine.manifest
             if not old or (old["id"], old["revision"]) != (manifest["id"], manifest["revision"]):
@@ -275,6 +275,9 @@ class Runtime:
                     if old: self.engine.load(old)
                     raise
             if contextual:
+                if isinstance(self.engine, RemoteEngine):
+                    return [self.engine.translate_contextual(text, glossary, context=contexts[i] if contexts else None)
+                            for i, text in enumerate(texts)]
                 return [self.engine.translate_contextual(text, glossary) for text in texts]
             return self.engine.translate_batch(texts)
 
