@@ -344,3 +344,24 @@ def compact_image_notice(text):
         return None
     french = 'la Guerre' if department == 'War' else 'la Défense'
     return f'Ces images du ministère américain de {french} ne valent pas approbation du {agency}.'
+
+
+def structured_technical_text(text, terms=None):
+    """Translate only fully recognized measurement and security-label grammar."""
+    import re
+    terms = terms or {}
+    qualifier = r'\((?:with|without) battery\)'
+    number = r'\d+(?:[.,]\d+)?'
+    dimension = number+r'\s*H\s*[x×]\s*'+number+r'\s*W\s*[x×]\s*'+number+r'\s*D\s*(?:in|cm|mm)\s*'+qualifier
+    volume = number+r'\s*in³\s*'+qualifier
+    for pattern in (dimension, volume):
+        matches = list(re.finditer(pattern, text))
+        if matches and not re.sub(pattern, '', text).strip():
+            return '\n'.join(match[0].replace('without battery', terms.get('without battery', 'sans batterie'))
+                            .replace('with battery', terms.get('with battery', 'avec batterie')) for match in matches)
+    security = re.fullmatch(r'([A-Za-z][A-Za-z0-9®™-]*)-based Type-1 Suite A and Suite B encryption \(selections vary by waveform\)', text.strip())
+    if security:
+        name=security[1]
+        names=[terms.get(value,value) for value in (name,'Type-1','Suite A','Suite B')]
+        return f'Chiffrement {names[0]} {names[1]} {names[2]} et {names[3]} (selon la forme d’onde)'
+    return None

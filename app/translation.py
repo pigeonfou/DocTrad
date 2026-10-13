@@ -73,6 +73,10 @@ class TransformersEngine(TranslationEngine):
         notice = compact_image_notice(text)
         if notice is not None:
             return notice
+        from .terminology import structured_technical_text
+        literal = structured_technical_text(text, terms)
+        if literal is not None:
+            return literal
         if preserved_name(text.strip()) or reference_label(text, terms):
             return text
         if not re.search(r"[^\W\d_]", text):

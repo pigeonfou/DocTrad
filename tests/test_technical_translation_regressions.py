@@ -163,3 +163,20 @@ def test_small_photo_notice_preserves_agency_and_non_endorsement():
     assert len(target) < len(source)
     assert compact_image_notice(source.replace('DoW', 'DoD')) is None
     assert compact_image_notice('Other legal notice') is None
+
+
+def test_structured_measurements_preserve_all_axes_numbers_and_units():
+    from app.terminology import structured_technical_text
+    source='3.50 H x 7.25 W x 14.31 D in (with battery) 8.89 H x 18.41 W x 36.34 D cm (with battery)'
+    target=structured_technical_text(source)
+    assert target == '3.50 H x 7.25 W x 14.31 D in (avec batterie)\n8.89 H x 18.41 W x 36.34 D cm (avec batterie)'
+    assert structured_technical_text('167 in³ (without battery) 275 in³ (with battery)') == '167 in³ (sans batterie)\n275 in³ (avec batterie)'
+    assert structured_technical_text(source+' Other qualification') is None
+    assert structured_technical_text('3.50 H x 7.25 W in (with battery)') is None
+
+def test_structured_encryption_label_keeps_source_names_and_glossary():
+    from app.terminology import structured_technical_text
+    source='Denali-based Type-1 Suite A and Suite B encryption (selections vary by waveform)'
+    assert structured_technical_text(source) == 'Chiffrement Denali Type-1 Suite A et Suite B (selon la forme d’onde)'
+    assert structured_technical_text(source, {'Denali':'Nom personnalisé'}).startswith('Chiffrement Nom personnalisé ')
+    assert structured_technical_text(source.replace('Suite B','Suite C')) is None
