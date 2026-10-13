@@ -13,10 +13,11 @@ MANAGER = Path('/opt/oneforall/manager/oneforall')
 HELPER = Path('/usr/local/sbin/oneforall-doctrad-deploy')
 EXPORT = Path('/var/lib/oneforall/doctrad-automation')
 CURRENT = Path('/opt/oneforall/apps/doctrad/current')
+DEPLOY_REFS = ('refs/heads/main', 'refs/heads/refonte-contexte-mise-en-page')
 PUBLIC_HASHES = {'cc6a5ca2bd9fad41fce19136afd7aaca3315a783a52348a4984bf11d8b8e41f6',
                 '9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b'}
 AUTOMATION = {'--automation-probe':'probe','--test-latest':'latest',
-              '--test-start':'start','--test-status':'status'}
+              '--test-start':'start','--test-start-l3':'start-l3','--test-start-tsm':'start-tsm','--test-status':'status'}
 ENV = {'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','HOME':'/root','LANG':'C.UTF-8',
        'PYTHONNOUSERSITE':'1'}
 
@@ -103,10 +104,12 @@ def main(argv=None):
         return automation(args[0])
     if not args[0].startswith('--'):
         head=subprocess.run(['/usr/bin/git','ls-remote','--exit-code',
-            'https://github.com/pigeonfou/DocTrad.git','refs/heads/main'],
+            'https://github.com/pigeonfou/DocTrad.git',*DEPLOY_REFS],
             env=ENV,cwd='/',capture_output=True,text=True,check=True,timeout=60)
-        if head.stdout.split()[0] != args[0]:
-            raise ValueError('Version dépassée : déployer uniquement le SHA actuel de main après validation CI.')
+        heads = {parts[1]: parts[0] for line in head.stdout.splitlines()
+                 if len(parts := line.split()) == 2 and parts[1] in DEPLOY_REFS}
+        if args[0] not in heads.values():
+            raise ValueError('Version dépassée : déployer uniquement le SHA actuel d’une branche autorisée après validation CI.')
     result=subprocess.run(invocation,env=ENV,cwd='/',check=False).returncode
     if result==0 and not args[0].startswith('--'):refresh_helper(args[0])
     return result

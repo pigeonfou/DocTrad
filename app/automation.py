@@ -50,12 +50,12 @@ def source_for(job):
     return (path,checksum) if checksum in REFERENCES else None
 
 
-def latest(db,completed=False):
+def latest(db,completed=False,reference=None):
     query=select(Job).where(Job.suffix=='.pdf')
     if completed: query=query.where(Job.status=='done')
     for job in db.scalars(query.order_by(Job.created.desc()).limit(500)):
         source=source_for(job)
-        if source:
+        if source and (reference is None or source[1] == reference):
             return job,source
     raise ValueError('Aucun document de référence public reconnu dans les 500 derniers PDF.')
 
@@ -110,8 +110,16 @@ def snapshot(db,job,source):
     return summary
 
 
-def start(db):
-    source_job,source=latest(db)
+def start(db,reference=None):
+    try:
+        _,source=latest(db,reference=reference)
+    except ValueError:
+        if reference != '9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b':
+            raise
+        path=CURRENT_RELEASE/'tests/fixtures/tsm-waveform-reference.pdf'
+        if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=reference:
+            raise ValueError('Référence publique de test absente ou altérée.')
+        source=(path,reference)
     owner=db.scalar(select(User).where(User.username==QA_USER))
     if owner is not None:
         if owner.admin or db.scalar(select(Memory.id).where(Memory.owner_id==owner.id).limit(1)):
@@ -121,6 +129,8 @@ def start(db):
         if active:
             active_source=source_for(active)
             if not active_source:raise ValueError('Test actif non reconnu.')
+            if reference is not None and active_source[1]!=reference:
+                raise ValueError('Un test sur une autre référence est déjà actif.')
             write_json(root()/'active.json',{'job_id':active.id})
             return snapshot(db,active,active_source)
     else:
@@ -145,7 +155,7 @@ def start(db):
 
 
 def execute(action):
-    if action not in ('probe','latest','start','status'):
+    if action not in ('probe','latest','start','start-l3','start-tsm','status'):
         raise ValueError('Opération de référence inconnue.')
     with (root()/'operations.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
@@ -180,6 +190,8 @@ def execute(action):
                 job,source=latest(db,completed=True)
                 return snapshot(db,job,source)
             if action=='start':return start(db)
+            if action=='start-l3':return start(db,'cc6a5ca2bd9fad41fce19136afd7aaca3315a783a52348a4984bf11d8b8e41f6')
+            if action=='start-tsm':return start(db,'9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b')
             state=json.loads((root()/'active.json').read_text())
             job=db.get(Job,str(uuid.UUID(state['job_id'])))
             source=source_for(job) if job else None
@@ -189,7 +201,7 @@ def execute(action):
 
 def main():
     parser=argparse.ArgumentParser(description='Public reference automation only')
-    parser.add_argument('action',choices=['probe','latest','start','status'])
+    parser.add_argument('action',choices=['probe','latest','start','start-l3','start-tsm','status'])
     args=parser.parse_args()
     try:
         print(json.dumps(execute(args.action),ensure_ascii=False))
