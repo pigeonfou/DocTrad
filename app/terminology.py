@@ -4,12 +4,30 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "Nomenclature": "Nomenclature",
+    "INTERFACES": "INTERFACES",
+    "Dimensions": "Dimensions",
+    "Power Output": "Puissance de sortie",
+    "MULTICHANNEL MANPACK": "RADIO PORTABLE MULTICANAL",
+    "GENERAL": "GÉNÉRALITÉS",
+    "AVAILABLE MODES AND WAVEFORMS": "MODES ET FORMES D’ONDE DISPONIBLES",
+    "TRANSMITTER": "ÉMETTEUR",
+    "RECEIVER": "RÉCEPTEUR",
+    "POWER": "ALIMENTATION",
+    "PHYSICAL": "CARACTÉRISTIQUES PHYSIQUES",
+    "ENVIRONMENTAL": "ENVIRONNEMENT",
+    "Narrowband Waveforms": "Formes d’onde à bande étroite",
+    "Wideband Waveforms": "Formes d’onde à large bande",
+    "Spurious Suppression": "Réjection des parasites",
+    "Harmonic and Spurious Suppression": "Réjection harmoniques / parasites",
+    "Sand/Dust/Salt/Fog/Rain": "Sable/poussière/sel/brouillard/pluie",
+    "crossbanding": "interconnexion interbande",
     "TOP SECRET": "TOP SECRET",
     "KEY BENEFITS": "AVANTAGES CLÉS",
     "INDUSTRY-LEADING": "DE PREMIER PLAN",
     "WAVEFORM PORTFOLIO AND INTEROPERABILITY": "GAMME DE FORMES D’ONDE ET INTEROPÉRABILITÉ",
     "UHF SATCOM Waveforms": "Formes d’onde SATCOM UHF",
-    "Channel Spacing/Bandwidth": "Espacement des canaux / largeur de bande",
+    "Channel Spacing/Bandwidth": "Pas / largeur de bande",
     "INDUSTRY-LEADING WAVEFORM PORTFOLIO AND INTEROPERABILITY": "UNE GAMME DE FORMES D’ONDE DE PREMIER PLAN ET UNE GRANDE INTEROPÉRABILITÉ",
     "PLI": "PLI",
     "Network Resilience": "Résilience du réseau",
@@ -47,6 +65,7 @@ DEFAULT_TERMS = {
 }
 # Ces appellations ne sont ni francisées ni remplacées par des synonymes.
 PROTECTED_NAMES = (
+    "SINAD", "Suite A", "Suite B", "Type-1", "MILS", "LOS", "VDC", "VAC", "CPA", "SCA", "JENM", "ATOM",
     "L3Harris", "FAST. FORWARD.", "TrellisWare", "TSM WAVEFORM", "TSM-X", "TSM",
     "Shadow Radio", "Ghost Radio", "Spirit Radio",
     "Shadow High Power Radio", "Shadow Core Board Module",
@@ -76,13 +95,16 @@ def preserved_name(text):
 def reference_label(text, terms):
     """Product/reference lists contain nothing that needs prose inference."""
     import re
+    if re.fullmatch(r'\s*[<>≤≥]?\s*[+-]?\d+(?:[.,]\d+)?\s*(?:dBm|dBc|kHz|MHz|GHz|Hz|VDC|VAC|mW|W|ppm)\s*',text):return True
+    if re.fullmatch(r'\s*[A-Z]{2,10}\s+v?\d+(?:\.\d+){1,3}\s*',text):return True
     # Internet/contact identifiers and postal directory entries are metadata.
     if re.fullmatch(r'\s*(?:\d+\s*\|\s*)?(?:[\w.+-]+@)?[\w-]+(?:\.[\w-]+)+\s*', text):
         return True
     if re.match(r'^TrellisWare Technologies, Inc\.\s+\d+\s', text):
         return True
-    if re.match(r'^\d{1,6}\s', text) and re.search(r'\b(?:Street|Court|Road|Suite|Avenue)\b', text):
+    if re.match(r'^\d{1,6}\s', text) and re.search(r'\b(?:Street|Court|Road|Suite|Avenue|Boulevard|Blvd|Drive)\b', text):
         return True
+    if re.fullmatch(r"[A-Za-z .'-]+,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?",text.strip()):return True
     if re.match(r'^(?:Tel\.?|Phone)\s', text) and ('@' in text or 'www' in text):
         return True
     if re.fullmatch(r'\s*[A-Z]+(?:[-/][A-Z0-9]+)+\s*',text): return True
@@ -94,7 +116,9 @@ def reference_label(text, terms):
             continue
         remaining, count = re.subn(r'(?<!\w)' + re.escape(name) + r'(?!\w)', '', remaining)
         found |= bool(count)
-    remaining = re.sub(r'\b[A-Z0-9]+(?:[-/][A-Z0-9]+)+\b|\b[A-Z]{2,}\b', '', remaining)
+    remaining,count = re.subn(r'\b[A-Z0-9]+(?:[-/][A-Z0-9]+)+\b','',remaining)
+    found |= bool(count)
+    remaining = re.sub(r'\b[A-Z]{2,}\b', '', remaining)
     return found and not re.search(r'\w', remaining)
 
 
@@ -168,6 +192,11 @@ def missing_names(source,target,terms=None):
 def correct_network_terms(source, target):
     """Correct observed ambiguous translations only in their source context."""
     import re
+    if re.search(r'\bmultichannel\b',source,re.I):
+        target=re.sub(r'\bmultifréquences\b','multicanal',target,flags=re.I)
+        target=re.sub(r'\bLe radio\b','La radio',target)
+    if re.search(r'\bcrossbanding\b',source,re.I):
+        target=re.sub(r'\bla bande croisée\b','l’interconnexion interbande',target,flags=re.I)
     # Restore a dropped minus only at an unambiguous measurement/unit anchor.
     for match in re.finditer(r'(?<![\w.,])[-−](\d+(?:[.,]\d+)?)\s*([°A-Za-z][°A-Za-z0-9/]*)',source):
         # A spaced range separator (30 - 2600 MHz) is not a sign either.
@@ -179,6 +208,11 @@ def correct_network_terms(source, target):
         if len(re.findall(anchor,source)) == 1:
             target=re.sub(r'(?<![\w.,+−-])('+anchor+r')',r'-\1',target)
     # Repair the erroneous minus in translations cached before this fix.
+    # Mixed-unit intervals are positive too: 5 kHz-40 MHz.
+    for lower,low_unit,upper,high_unit in re.findall(r'(?<![\w.,+-])(\d+(?:[.,]\d+)?)\s*(kHz|MHz|GHz|Hz)\s*[-–—]\s*(\d+(?:[.,]\d+)?)\s*(kHz|MHz|GHz|Hz)\b',source):
+        low=re.escape(lower).replace(r'\.', '[.,]')
+        high=re.escape(upper).replace(r'\.', '[.,]')
+        target=re.sub(r'(?<![\w.,])('+low+r'\s*'+low_unit+r'\s*(?:à|to|[-–—])\s*)[-−]('+high+r'\s*'+high_unit+r'\b)',r'\1\2',target)
     for lower,upper,unit in re.findall(r'(?<![\w.,+-])(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)\s*(MHz|GHz|Hz)\b',source):
         low=re.escape(lower).replace(r'\.', '[.,]')
         high=re.escape(upper).replace(r'\.', '[.,]')

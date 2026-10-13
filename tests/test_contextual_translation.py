@@ -3,6 +3,18 @@ from app.terminology import terminology
 from app.translation_audit import audit_translation
 
 
+def test_dotted_country_abbreviation_keeps_complete_legal_sentence(monkeypatch):
+    from app.quality import split_sentences, segment
+    source='The U.S. Department information does not imply endorsement. Contact us.'
+    parts=['The U.S. Department information does not imply endorsement.','Contact us.']
+    assert split_sentences(source)==parts
+    assert segment(source,max_chars=60)==parts
+    engine=TransformersEngine();seen=[]
+    monkeypatch.setattr(engine,'_translate_prose',lambda text:seen.append(text) or text)
+    engine.translate_contextual(source)
+    assert seen==parts
+
+
 def test_model_receives_complete_sentence_with_values_and_product_names(monkeypatch):
     engine = TransformersEngine()
     seen = []

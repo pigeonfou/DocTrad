@@ -7,6 +7,13 @@ from app.ocr import scan_pdf,paragraphs,separate_list_markers
 from app.pdf_layout import clean_text_patch
 
 class NativePdfTests(unittest.TestCase):
+    def test_voice_and_data_subheadings_keep_their_own_blocks(self):
+        lines=[]
+        for i,(text,bold) in enumerate([('Voice',True),('Narrowband analog',False),('AM/FM',False),('Data',True),('Tactical INE',False)]):
+            lines.append(dict(text=text,source_bold=False,native_text=True,confidence=1,page=1,
+                box=[100,100+i*12,200,112+i*12],table_cell=[90,90,300,200],ocr_group=['native',1],cell_part=1))
+        blocks=paragraphs(lines)
+        self.assertEqual([x['text'] for x in blocks],['Voice','Narrowband analog AM/FM','Data','Tactical INE'])
     def test_translated_native_cell_leaves_no_old_second_line(self):
         import subprocess
         from app.pdf_layout import export_pdf

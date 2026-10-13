@@ -390,6 +390,9 @@ def paragraphs(lines):
     """
     import re
     result = []
+    def native_subheading(line):
+        return (line.get('native_text') and line.get('table_cell')
+                and line['text'].strip().rstrip(':') in ('Voice','Data'))
     # Read one physical cell at a time, including interleaved left/right lines.
     def reading_order(item):
         index, line = item
@@ -419,6 +422,7 @@ def paragraphs(lines):
                      and (-max(h,old_h)*.4 if line.get('native_text') else 0) <= box[1]-old[3] <= max(h, old_h)*1.2
                      and min(h, old_h)/max(h, old_h) >= .7
                      and not line.get('list_marker')
+                     and not native_subheading(line) and not native_subheading(last)
                      and not re.match(r'^[•●▪*~–—»«=−-]\s*|^\d+[.)]\s', line['text'])
                      and not last['text'].rstrip().endswith(':')
                      and not (line.get('native_text') and re.fullmatch(r'[A-Z]+(?:[-/][A-Z0-9]+)+',last['text'].strip()))

@@ -261,6 +261,7 @@ def export_pdf(original, targets, segments, destination):
                     if target == source_text:
                         if (re.search(r'[A-Za-z]{3,}', source_text)
                                 and not preserved_name(source_text)
+                                and DEFAULT_TERMS.get(source_text.strip()) != target.strip()
                                 and not reference_label(source_text, {})):
                             report['warnings'].append({'segment': index, 'page': page_number,
                                 'reason': 'Texte identique à la source : vérifier la traduction'})

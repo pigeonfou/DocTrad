@@ -6,6 +6,18 @@ from collections import Counter
 TECH = re.compile(r"(?<!\w)(?:ISO\s+\d+|[+-]?\d+(?:[.,]\d+)?\s*(?:VDC|VAC|mA|kV|kW|MHz|GHz|Nm|mm|cm|kg|°C|V|A|W|Hz|%)(?!\w)|[A-Z]+[A-Z0-9]*(?:[-][A-Z0-9]+)+|[A-Za-z]+\d+[A-Za-z0-9]*|[A-Z]{2,}s?|RoHS|REACH)(?!\w)")
 NUMBERS = re.compile(r"(?<![\w])[+-]?\d+(?:[.,]\d+)?")
 
+
+def split_sentences(text):
+    """Keep dotted abbreviations inside the complete technical sentence."""
+    output=[];start=0
+    for boundary in re.finditer(r'(?<=[.!?])\s+(?=[A-Z])',text):
+        prefix=text[:boundary.start()]
+        if re.search(r'(?:\b[A-Z](?:\.[A-Z])+\.|\b(?:Mr|Ms|Dr|Prof|Inc|Ltd)\.)$',prefix,re.I):
+            continue
+        output.append(text[start:boundary.start()]);start=boundary.end()
+    output.append(text[start:])
+    return output
+
 def protect(text, glossary=None):
     mapping = {}
     nonce = secrets.token_hex(4)
@@ -52,7 +64,7 @@ def segment(text, max_chars=1000):
     chunks = []
     for paragraph in text.splitlines():
         if not paragraph.strip(): continue
-        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", paragraph)
+        sentences = split_sentences(paragraph)
         current = ""
         for sentence in sentences:
             if len(sentence) > max_chars:

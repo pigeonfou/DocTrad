@@ -58,7 +58,7 @@ class TransformersEngine(TranslationEngine):
         to English terms the model actually retained; QA reports lost values.
         """
         import re
-        from .quality import segment
+        from .quality import segment, split_sentences
         terms = glossary or {}
         # QR captions can be extracted as "SCAN M E" or spaced letters.
         # Match the entire caption only; do not rewrite prose or identifiers.
@@ -76,7 +76,7 @@ class TransformersEngine(TranslationEngine):
             return text
         # OPUS is trained on sentences and can omit later sentences in a block.
         # Preserve paragraph layout while translating every complete sentence.
-        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text.strip())
+        sentences = split_sentences(text.strip())
         chunks = [chunk for sentence in sentences for chunk in segment(sentence, max_chars=1000)]
         translated = " ".join(self._translate_prose(chunk) for chunk in chunks)
         # A single pass avoids matching inside replacements or shorter names.

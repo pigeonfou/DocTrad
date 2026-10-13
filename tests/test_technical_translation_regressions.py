@@ -6,6 +6,25 @@ from app.ocr import recover_legal_small_print
 from app.terminology import correct_network_terms
 
 class TechnicalTranslationRegressions(unittest.TestCase):
+    def test_mixed_frequency_units_do_not_become_negative(self):
+        self.assertEqual(correct_network_terms('5 kHz-40 MHz','5 kHz à -40 MHz.'),'5 kHz à 40 MHz.')
+        self.assertEqual(correct_network_terms('-40 MHz','40 MHz'),'-40 MHz')
+
+    def test_manpack_wording_and_postal_metadata(self):
+        from app.terminology import reference_label
+        self.assertEqual(correct_network_terms('Multichannel Radio uses crossbanding','Le radio multifréquences utilise la bande croisée.'),
+            'La radio multicanal utilise l’interconnexion interbande.')
+        self.assertTrue(reference_label('1025 W. NASA Boulevard',{}))
+        self.assertTrue(reference_label('Melbourne, FL 32919',{}))
+        for literal in ('USB 2.0','SCA v2.2.2','60 dBm','AN/PRC-167, RT-2096'):
+            self.assertTrue(reference_label(literal,{}))
+        self.assertFalse(reference_label('GENERAL',{}))
+        self.assertFalse(reference_label('60 years',{}))
+
+    def test_security_suites_and_sinad_are_required_names(self):
+        from app.terminology import missing_names
+        self.assertEqual(set(missing_names('Suite A and Suite B, Type-1, 12 dB SINAD, 18 VDC','modèles A et B, type 1, 12 dB de bruit, 18 VCC')),
+            {'Suite A','Suite B','Type-1','SINAD','VDC'})
     def test_ranges_never_acquire_a_negative_endpoint(self):
         for source in ('30-2600 MHz','30 - 2600 MHz','30–2600 MHz'):
             self.assertEqual(correct_network_terms(source,'30 à 2600 MHz'),'30 à 2600 MHz')
