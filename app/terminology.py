@@ -379,6 +379,15 @@ def structured_technical_text(text, terms=None):
         if matches and not re.sub(pattern, '', text).strip():
             return '\n'.join(match[0].replace('without battery', terms.get('without battery', 'sans batterie'))
                             .replace('with battery', terms.get('with battery', 'avec batterie')) for match in matches)
+    # Exact cell grammars avoid turning immersion depth into a water quantity
+    # or full operating capability into mere battery compatibility.
+    immersion = re.fullmatch(r'(\d+(?:[.,]\d+)?)-meter salt water \((MIL-STD-\d+[A-Z]?)\)', text.strip())
+    if immersion:
+        return f'{immersion[1]} m en eau salée ({immersion[2]})'
+    battery = re.fullmatch(r'([A-Z]{2}-\d+/[A-Z]) for full radio capability Can use ([A-Z]{2}-\d+/[A-Z]) and ([A-Z]{2}-\d+/[A-Z])', text.strip())
+    if battery:
+        return (f'{battery[1]} : toutes les fonctions radio\n'
+                f'{battery[2]} et {battery[3]} également utilisables')
     security = re.fullmatch(r'([A-Za-z][A-Za-z0-9®™-]*)-based Type-1 Suite A and Suite B encryption \(selections vary by waveform\)', text.strip())
     if security:
         name=security[1]

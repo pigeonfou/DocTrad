@@ -200,3 +200,40 @@ def test_manpack_gender_and_release_grammar_are_source_anchored():
     corrected=correct_network_terms(source,target)
     assert corrected=='La radio portable multicanal est disponible ; cette radio fonctionne. La version 3.2 est en développement.'
     assert correct_network_terms('Unrelated source',target)==target
+
+
+def test_immersion_depth_is_not_a_quantity_of_water():
+    from app.terminology import structured_technical_text
+    from app.quality import check
+    source = '2-meter salt water (MIL-STD-810G)'
+    target = structured_technical_text(source)
+    assert target == '2 m en eau salée (MIL-STD-810G)'
+    assert not check(source, target)
+    assert structured_technical_text('1.5-meter salt water (MIL-STD-810H)') == '1.5 m en eau salée (MIL-STD-810H)'
+    assert structured_technical_text(source + ' for 30 minutes') is None
+    assert structured_technical_text('2-meter fresh water (MIL-STD-810G)') is None
+
+
+def test_battery_capability_preserves_all_three_models():
+    from app.terminology import structured_technical_text, missing_names
+    from app.quality import check
+    source = 'BB-2590/U for full radio capability Can use BA-5590/U and BA-5390/U'
+    target = structured_technical_text(source)
+    assert target == 'BB-2590/U : toutes les fonctions radio\nBA-5590/U et BA-5390/U également utilisables'
+    assert len(target) < len('BB-2590/U pour une compatibilité radio complète. Peut utiliser les modèles BA-5590/U et BA-5390/U.')
+    assert not missing_names(source, target)
+    assert not check(source, target)
+    assert structured_technical_text(source + ' with restrictions') is None
+    assert structured_technical_text(source.replace('full radio capability', 'limited radio capability')) is None
+
+
+def test_precise_technical_cells_bypass_remote_inference_but_honor_exact_glossary():
+    from app.translation import RemoteEngine
+    from app.terminology import terminology
+    engine = RemoteEngine()
+    source = '2-meter salt water (MIL-STD-810G)'
+    battery = 'BB-2590/U for full radio capability Can use BA-5590/U and BA-5390/U'
+    with patch.object(engine, '_translate_prose', side_effect=AssertionError('No inference for exact cell grammar')):
+        assert engine.translate_contextual(source, terminology()) == '2 m en eau salée (MIL-STD-810G)'
+        assert 'toutes les fonctions radio' in engine.translate_contextual(battery, terminology())
+        assert engine.translate_contextual(source, {source: 'Libellé utilisateur'}) == 'Libellé utilisateur'
