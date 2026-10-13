@@ -146,7 +146,8 @@ class RemoteEngine(TransformersEngine):
         # Translating fragments independently can glue names onto French words.
         from .terminology import missing_names
         from .diagnostics import InferenceError
-        target = self._request_translation(text, retry=True)
+        from .terminology import correct_network_terms
+        target = correct_network_terms(text, self._request_translation(text, retry=True))
         if missing_names(text, target, terms):
             raise InferenceError('missing_identifier', {'characters': len(text), 'attempt': 2})
         return target
@@ -185,11 +186,9 @@ class RemoteEngine(TransformersEngine):
         if retry and "translategemma" in self.settings["model"].lower():
             payload["repetition_penalty"] = 1.1
             payload["max_tokens"] = 512
-            from .terminology import required_names
-            names = required_names(text, getattr(self, "context_terms", None))
             payload["messages"][0]["content"] = (
-                "Preserve these source identifiers exactly: " + json.dumps(list(names.values()), ensure_ascii=False)
-                + ". Return one complete French translation only. Never omit or add identifiers.\n"
+                "Return one complete French translation only. Keep the original spelling of identifiers "
+                "within the sentence. Do not append lists, notes or explanations.\n"
                 + payload["messages"][0]["content"])
 
         key = Path(self.settings["key_file"]).read_text().strip()

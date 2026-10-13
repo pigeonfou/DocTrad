@@ -31,7 +31,17 @@ jobs:
         run: sudo -n /usr/local/sbin/oneforall-doctrad-deploy "$TESTED_SHA"
       - name: Show service state
         if: steps.current.outputs.deploy == 'true'
-        run: sudo -n /usr/local/sbin/oneforall-doctrad-deploy --status
+        shell: bash
+        run: |
+          # The periodic OneForAll status timer may briefly hold its manager lock.
+          for attempt in $(seq 1 20); do
+            if sudo -n /usr/local/sbin/oneforall-doctrad-deploy --status; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Service state remained unavailable after bounded retries.'
+          exit 1
       - name: Diagnostic on failure
         if: failure()
         run: sudo -n /usr/local/sbin/oneforall-doctrad-deploy --logs

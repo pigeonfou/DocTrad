@@ -199,6 +199,12 @@ def correct_network_terms(source, target):
         target=re.sub(r'\bla bande croisée\b','l’interconnexion interbande',target,flags=re.I)
         target=re.sub(r'\b(?:le|la) interconnexion interbande\b', 'l’interconnexion interbande', target, flags=re.I)
         target=re.sub(r'\bde interconnexion interbande\b', 'd’interconnexion interbande', target, flags=re.I)
+    # Restore spelling only for identifiers explicitly present in this source.
+    if 'Type-1' in source:
+        target=re.sub(r'\btype\s*[-–−]?\s*1\b', 'Type-1', target, flags=re.I)
+    for suite in ('A', 'B'):
+        if 'Suite '+suite in source:
+            target=re.sub(r'\bsuite\s*'+suite+r'\b', 'Suite '+suite, target, flags=re.I)
     # Restore a dropped minus only at an unambiguous measurement/unit anchor.
     for match in re.finditer(r'(?<![\w.,])[-−](\d+(?:[.,]\d+)?)\s*([°A-Za-z][°A-Za-z0-9/]*)',source):
         # A spaced range separator (30 - 2600 MHz) is not a sign either.

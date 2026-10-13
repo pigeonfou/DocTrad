@@ -133,3 +133,8 @@ def test_crossbanding_articles_are_source_anchored():
     assert correct_network_terms('Uses crossbanding', 'Utilise le interconnexion interbande') == 'Utilise l’interconnexion interbande'
     assert correct_network_terms('Advanced crossbanding', 'Un système de interconnexion interbande') == 'Un système d’interconnexion interbande'
     assert correct_network_terms('Unrelated source', 'Utilise le interconnexion interbande') == 'Utilise le interconnexion interbande'
+
+
+def test_security_identifier_spelling_repairs_are_source_anchored():
+    assert correct_network_terms('Type-1 Suite A and Suite B', 'type 1 SuiteA et suite b') == 'Type-1 Suite A et Suite B'
+    assert correct_network_terms('Another type', 'type 1 SuiteA') == 'type 1 SuiteA'
