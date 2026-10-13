@@ -1,6 +1,7 @@
 name: DocTrad checks
 on:
   push:
+    paths-ignore: ['.github/doctrad-automation.json']
   pull_request:
 permissions:
   contents: read

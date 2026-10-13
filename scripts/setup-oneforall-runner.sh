@@ -30,6 +30,7 @@ chmod 0440 "$sudoers_tmp"
 visudo -cf "$sudoers_tmp"
 install -o root -g root -m 0440 "$sudoers_tmp" /etc/sudoers.d/oneforall-doctrad-runner
 sudo -u "$runner_user" sudo -n /usr/local/sbin/oneforall-doctrad-deploy --status
+sudo -u "$runner_user" sudo -n /usr/local/sbin/oneforall-doctrad-deploy --automation-probe
 echo "Compte préparé : $runner_user ; label GitHub requis : doctrad-deploy."
 echo 'Runner à enregistrer dans pigeonfou/DocTrad, sous ce compte, si absent.'
 systemctl list-unit-files --type=service --no-pager | grep -E 'actions\.runner\.' || true

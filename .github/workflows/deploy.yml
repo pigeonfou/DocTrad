@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: doctrad-server-deploy
+  group: doctrad-server-operations
   cancel-in-progress: false
 jobs:
   deploy:

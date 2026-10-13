@@ -52,3 +52,6 @@ found » signifie que la préparation locale reste à effectuer.
 Le workflow `DocTrad local model` concerne l'ancienne installation autonome et
 reste conditionné aux dépôts privés. OneForAll conserve les modèles déjà
 installés ; ce workflow n'est pas requis pour le déploiement public décrit ici.
+
+La récupération des documents publics de référence et les essais complets via
+le worker sont décrits dans [Chaîne autonome](autonomous-reference-chain.md).
