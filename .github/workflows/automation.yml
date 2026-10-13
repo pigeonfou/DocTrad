@@ -70,6 +70,40 @@ jobs:
               ;;
             *) exit 1 ;;
           esac
+      - name: Inspect recognized public reference
+        if: always() && steps.evidence.outputs.ready == 'true'
+        shell: bash
+        run: |
+          /opt/oneforall/apps/doctrad/current/.venv/bin/python -I - <<'PY'
+          import base64, collections, hashlib, io, json, os, subprocess, tempfile
+          from pathlib import Path
+          root=Path('/var/lib/oneforall/doctrad-automation')
+          manifest=json.loads((root/'manifest.json').read_text())
+          allowed={'cc6a5ca2bd9fad41fce19136afd7aaca3315a783a52348a4984bf11d8b8e41f6','9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b'}
+          source=root/'source.pdf'
+          if not source.exists():
+              raise SystemExit(0)
+          digest=hashlib.sha256(source.read_bytes()).hexdigest()
+          assert digest in allowed and digest==manifest['source_sha256']
+          report={'manifest':manifest,'deployed_sha':Path('/opt/oneforall/apps/doctrad/current').resolve().name}
+          for name in ('segments.json','diagnostics.json','layout-report.json'):
+              path=root/name
+              if path.exists():report[name]=json.loads(path.read_text())
+          print('DOCTRAD_PUBLIC_REPORT='+json.dumps(report,ensure_ascii=False))
+          pdf=root/'translation.pdf'
+          if manifest['status']=='done' and pdf.is_file():
+              from pypdf import PdfReader
+              text='\n'.join(page.extract_text() for page in PdfReader(pdf).pages)
+              print('DOCTRAD_PUBLIC_TEXT='+json.dumps(text,ensure_ascii=False))
+              from PIL import Image
+              with tempfile.TemporaryDirectory(dir=os.environ.get('RUNNER_TEMP')) as temp:
+                  prefix=str(Path(temp)/'page')
+                  subprocess.run(['pdftoppm','-scale-to','1500','-png',str(pdf),prefix],check=True,capture_output=True)
+                  for page in sorted(Path(temp).glob('page-*.png')):
+                      output=io.BytesIO()
+                      with Image.open(page) as image:image.convert('RGB').save(output,format='JPEG',quality=88)
+                      print('DOCTRAD_PUBLIC_PREVIEW_'+page.stem+'='+base64.b64encode(output.getvalue()).decode())
+          PY
       - name: Retrieve public reference evidence
         if: always() && steps.evidence.outputs.ready == 'true'
         uses: actions/upload-artifact@v4

@@ -149,3 +149,17 @@ def test_radio_labels_keep_meaning_and_do_not_add_punctuation():
         assert engine.translate_contextual('Squelch', terminology()) == 'Silencieux'
         assert engine.translate_contextual('Encryption', terminology()) == 'Chiffrement'
         assert engine.translate_contextual('Key Fill', terminology({'Key Fill': 'Injection des clés'})) == 'Injection des clés'
+
+
+def test_security_suite_shorthand_keeps_both_source_suites():
+    assert correct_network_terms('Denali Type-1 Suite A and Suite B', 'denali Type 1 suites A et B') == 'Denali Type-1 Suite A et Suite B'
+    assert correct_network_terms('Another source', 'suites A et B') == 'suites A et B'
+
+def test_small_photo_notice_preserves_agency_and_non_endorsement():
+    from app.terminology import compact_image_notice
+    source = 'The appearance of U.S. Department of War visual information does not imply or constitute DoW endorsement.'
+    target = compact_image_notice(source)
+    assert target == 'Ces images du ministère américain de la Guerre ne valent pas approbation du DoW.'
+    assert len(target) < len(source)
+    assert compact_image_notice(source.replace('DoW', 'DoD')) is None
+    assert compact_image_notice('Other legal notice') is None

@@ -229,6 +229,11 @@ def correct_network_terms(source, target):
     # Restore spelling only for identifiers explicitly present in this source.
     if 'Type-1' in source:
         target=re.sub(r'\btype\s*[-–−]?\s*1\b', 'Type-1', target, flags=re.I)
+    if 'Suite A' in source and 'Suite B' in source:
+        target=re.sub(r'\bsuites?\s+A\s+et\s+B\b', 'Suite A et Suite B', target, flags=re.I)
+    for name in PROTECTED_NAMES:
+        if re.search(r'(?<!\w)'+re.escape(name)+r'(?!\w)', source):
+            target=re.sub(r'(?<!\w)'+re.escape(name)+r'(?!\w)', name, target, flags=re.I)
     for suite in ('A', 'B'):
         if 'Suite '+suite in source:
             target=re.sub(r'\bsuite\s*'+suite+r'\b', 'Suite '+suite, target, flags=re.I)
@@ -326,3 +331,16 @@ def correct_network_terms(source, target):
                         'la transmission simultanée de la voix, des données, de la vidéo et des informations de position (PLI)', target, flags=re.I)
     return restore_dual_measurements(source, restore_anchored_numbers(source, target))
 
+
+
+def compact_image_notice(text):
+    """Known legal caption template; retain agency and non-endorsement meaning."""
+    import re
+    match = re.fullmatch(r'The appearance of U\.S\. Department of (War|Defense) visual information does not imply or constitute (DoW|DoD) endorsement\.', text.strip())
+    if not match:
+        return None
+    department, agency = match.groups()
+    if (department, agency) not in (('War', 'DoW'), ('Defense', 'DoD')):
+        return None
+    french = 'la Guerre' if department == 'War' else 'la Défense'
+    return f'Ces images du ministère américain de {french} ne valent pas approbation du {agency}.'

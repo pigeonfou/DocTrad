@@ -69,7 +69,10 @@ class TransformersEngine(TranslationEngine):
         bullet = re.match(r'^([•●▪*–—»«-]\s*)(.+)$', text.strip())
         if bullet and bullet[2].strip() in terms:
             return bullet[1] + terms[bullet[2].strip()]
-        from .terminology import preserved_name, reference_label
+        from .terminology import preserved_name, reference_label, compact_image_notice
+        notice = compact_image_notice(text)
+        if notice is not None:
+            return notice
         if preserved_name(text.strip()) or reference_label(text, terms):
             return text
         if not re.search(r"[^\W\d_]", text):
