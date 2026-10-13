@@ -93,14 +93,19 @@ class TransformersEngine(TranslationEngine):
         from .terminology import required_names, missing_names
         if missing_names(text,translated,terms):
             from .quality import protect, restore
-            protected, mapping = protect(text, required_names(text,terms))
-            translated = correct_network_terms(text, restore(self.translate(protected), mapping))
+            translated = correct_network_terms(text, self.recover_names(text, terms))
         # Glossary headings at the start of a colon-separated paragraph keep
         # their preferred wording without fragmenting the model's source.
         source_heading, separator, _ = text.partition(':')
         if separator and source_heading.strip() in terms and ':' in translated:
             translated = terms[source_heading.strip()] + ' :' + translated.partition(':')[2]
         return translated
+
+    def recover_names(self, text, terms):
+        from .quality import protect, restore
+        from .terminology import required_names
+        protected, mapping = protect(text, required_names(text, terms))
+        return restore(self.translate(protected), mapping)
 
     def _translate_prose(self, text):
         if self.model is None: raise ValueError("Modèle absent")
@@ -136,6 +141,16 @@ class RemoteEngine(TransformersEngine):
         self.settings = None
     def health(self):
         return {"loaded": self.manifest is not None, "model": self.manifest and self.manifest["id"], "remote": True}
+    def recover_names(self, text, terms):
+        # A chat model needs the complete sentence, including names and units.
+        # Translating fragments independently can glue names onto French words.
+        from .terminology import missing_names
+        from .diagnostics import InferenceError
+        target = self._request_translation(text, retry=True)
+        if missing_names(text, target, terms):
+            raise InferenceError('missing_identifier', {'characters': len(text), 'attempt': 2})
+        return target
+
     def _translate_prose(self, text):
         from .diagnostics import InferenceError
         try:
@@ -170,7 +185,13 @@ class RemoteEngine(TransformersEngine):
         if retry and "translategemma" in self.settings["model"].lower():
             payload["repetition_penalty"] = 1.1
             payload["max_tokens"] = 512
-            payload["messages"][0]["content"] += "\n\nReturn one French translation only. Do not repeat the source text or generate a conversation."
+            from .terminology import required_names
+            names = required_names(text, getattr(self, "context_terms", None))
+            payload["messages"][0]["content"] = (
+                "Preserve these source identifiers exactly: " + json.dumps(list(names.values()), ensure_ascii=False)
+                + ". Return one complete French translation only. Never omit or add identifiers.\n"
+                + payload["messages"][0]["content"])
+
         key = Path(self.settings["key_file"]).read_text().strip()
         request = urllib.request.Request(self.settings["base_url"] + "/chat/completions",
             data=json.dumps(payload).encode(), headers={"Authorization": "Bearer " + key,

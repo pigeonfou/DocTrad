@@ -190,3 +190,17 @@ def test_terminology_hints_use_only_current_source_chunk():
     with patch.object(engine, '_translate_prose', return_value='Une traduction'):
         engine.translate_contextual('Another sentence', {'Voice': 'Voix'})
     assert engine.context_terms == {}
+
+
+def test_remote_name_recovery_keeps_whole_sentence_and_fails_on_second_loss():
+    from app.diagnostics import InferenceError
+    engine = RemoteEngine()
+    source = 'Windows-based application uses CPA and WebUI'
+    with patch.object(engine, '_request_translation', return_value='Application Windows avec CPA et WebUI') as call:
+        assert engine.recover_names(source, {}) == 'Application Windows avec CPA et WebUI'
+        call.assert_called_once_with(source, retry=True)
+    with patch.object(engine, '_request_translation', return_value='Application CPA'):
+        import pytest
+        with pytest.raises(InferenceError) as failure:
+            engine.recover_names(source, {})
+        assert failure.value.diagnostic['code'] == 'missing_identifier'
