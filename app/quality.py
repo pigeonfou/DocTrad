@@ -114,19 +114,35 @@ def inference_defects(source, target):
         if (isinstance(echoed, list) and echoed and all(isinstance(item,str) for item in echoed)
                 and set(echoed) <= names and last not in source):
             defects.append('prompt_echo')
+    if strip_identifier_echo(source, target, list(required_names(source).values())) != target and 'prompt_echo' not in defects:
+        defects.append('prompt_echo')
     return defects
 
 
 def strip_identifier_echo(source, target, names):
-    """Remove only an exact echoed recovery instruction on its own final line."""
+    """Remove source-scoped instruction echoes, never a source list or new facts."""
     import json
     body, separator, last = target.rstrip().rpartition('\n')
-    if not separator or not body.strip() or not names:
+    if not separator or not body.strip() or not names or '[' in source or ']' in source:
         return target
     try:
         echoed = json.loads(last)
     except (ValueError, TypeError):
-        return target
-    if echoed == names and json.dumps(names, ensure_ascii=False) not in source:
+        echoed = None
+    if echoed == names:
+        return body.rstrip()
+    remaining = last
+    matched = []
+    for name in sorted(set(names),key=len,reverse=True):
+        pattern = r'(?<!\w)' + re.escape(name) + r'(?!\w)'
+        if re.search(pattern,remaining):
+            matched.append(name)
+            remaining=re.sub(pattern,'',remaining)
+    punctuation_only = not re.search(r"""[^\s,;|'"\[\]()•]+""",remaining)
+    covered = all(
+        len(re.findall(r'(?<!\w)'+re.escape(name)+r'(?!\w)',body))
+        >= max(1,len(re.findall(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source)))
+        for name in matched)
+    if matched and punctuation_only and covered and last not in source:
         return body.rstrip()
     return target

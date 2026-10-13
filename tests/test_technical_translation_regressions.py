@@ -192,3 +192,11 @@ def test_regulatory_notice_preserves_controlled_status_and_part_numbers():
     assert not check(source,target)
     assert check(source,target.replace('120.33','120.34'))
     assert reference_label('© 2026 L3Harris Technologies, Inc. | 07/2026 | L33398',{})
+
+
+def test_manpack_gender_and_release_grammar_are_source_anchored():
+    source='The Multichannel Manpack radio supports modes, with 3.2 in development.'
+    target='Le "radio portable multicanal" est disponible ; ce radio fonctionne. Les versions 3.2 sont en développement.'
+    corrected=correct_network_terms(source,target)
+    assert corrected=='La radio portable multicanal est disponible ; cette radio fonctionne. La version 3.2 est en développement.'
+    assert correct_network_terms('Unrelated source',target)==target

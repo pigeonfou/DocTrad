@@ -219,3 +219,16 @@ def test_unsolicited_identifier_annex_is_rejected_on_first_response():
     from app.quality import inference_defects
     assert inference_defects('Windows CPA application', 'Application Windows CPA\n["Windows", "CPA"]') == ['prompt_echo']
     assert not inference_defects('Names ["Windows", "CPA"]', 'Noms ["Windows", "CPA"]')
+
+
+def test_plain_identifier_echo_requires_complete_earlier_coverage():
+    from app.quality import strip_identifier_echo, inference_defects
+    source='TSM-X MANET supports SATCOM and COP'
+    names=['TSM-X','MANET','SATCOM','COP']
+    body='TSM-X MANET prend en charge SATCOM et COP.'
+    assert strip_identifier_echo(source,body+'\nTSM-X MANET SATCOM COP',names)==body
+    assert inference_defects(source,body+'\nTSM-X MANET SATCOM COP')==['prompt_echo']
+    assert strip_identifier_echo(source,'TSM-X MANET\nSATCOM COP',names)=='TSM-X MANET\nSATCOM COP'
+    assert strip_identifier_echo(source,body+'\nSATCOM COP 3.2',names).endswith('3.2')
+    original_list=source+'\nTSM-X MANET SATCOM COP'
+    assert strip_identifier_echo(original_list,body+'\nTSM-X MANET SATCOM COP',names).endswith('COP')

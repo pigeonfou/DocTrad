@@ -4,6 +4,9 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "High Assurances architecture": "architecture à haute assurance",
+    "High Assurances": "à haute assurance",
+    "Multichannel Manpack Radio": "radio portable multicanal",
     "Multichannel Manpack": "radio portable multicanal",
     "Line-of-Sight": "visibilité directe",
     "Beyond Line-Of-Sight": "hors visibilité directe",
@@ -232,7 +235,13 @@ def correct_network_terms(source, target):
     import re
     if re.search(r'\bmultichannel\b',source,re.I):
         target=re.sub(r'\bmultifréquences\b','multicanal',target,flags=re.I)
+        if not re.search(r'["“”«»]',source):
+            target=re.sub(r'["“«]\s*radio portable multicanal\s*["”»]', 'radio portable multicanal', target)
         target=re.sub(r'\bLe radio\b','La radio',target)
+        target=re.sub(r'\bce radio\b','cette radio',target,flags=re.I)
+    for version in re.findall(r'\bwith\s+(\d+(?:\.\d+)+)\s+in development\b',source,re.I):
+        target=re.sub(r'\bLes versions\s+'+re.escape(version)+r'\s+sont en développement\b',
+                      'La version '+version+' est en développement',target,flags=re.I)
     if re.search(r'\bcrossbanding\b',source,re.I):
         target=re.sub(r'\bla bande croisée\b','l’interconnexion interbande',target,flags=re.I)
         target=re.sub(r'\b(?:le|la) interconnexion interbande\b', 'l’interconnexion interbande', target, flags=re.I)

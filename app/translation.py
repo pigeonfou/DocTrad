@@ -233,9 +233,10 @@ class RemoteEngine(TransformersEngine):
             code = "invalid_control_tokens"
             from .remote_ai import clean_translation
             translated = clean_translation(translated)
-            if retry and "translategemma" in self.settings["model"].lower():
-                from .quality import strip_identifier_echo
-                translated = strip_identifier_echo(text, translated, recovery_names)
+            from .quality import strip_identifier_echo
+            from .terminology import required_names
+            source_names = list(required_names(text, getattr(self, "context_terms", None)).values())
+            translated = strip_identifier_echo(text, translated, source_names)
             from .quality import inference_defects
             defects = inference_defects(text, translated)
             if defects:
