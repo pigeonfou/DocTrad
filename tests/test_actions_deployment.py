@@ -84,3 +84,19 @@ def test_automation_does_not_export_an_unrecognized_source_or_echo_credentials(t
         assert 'secret-db-password' not in ' '.join(run.call_args.args[0])
         assert run.call_args.kwargs['env']['DATABASE_URL']=='secret-db-password'
         assert not helper.EXPORT.exists()
+
+
+def test_only_named_candidate_branch_head_can_reach_privileged_update():
+    info=SimpleNamespace(st_uid=0,st_mode=0o755)
+    heads='b'*40+'\trefs/heads/main\n'+'a'*40+'\trefs/heads/refonte-contexte-mise-en-page\n'
+    responses=[subprocess.CompletedProcess([],0,heads),subprocess.CompletedProcess([],7)]
+    with patch.object(helper.os,'geteuid',return_value=0),patch.object(Path,'stat',return_value=info),patch.object(helper.subprocess,'run',side_effect=responses) as run:
+        assert helper.main(['a'*40]) == 7
+        assert run.call_args.args[0] == helper.command('a'*40)
+
+
+def test_unapproved_reference_is_rejected_even_with_matching_sha():
+    info=SimpleNamespace(st_uid=0,st_mode=0o755)
+    with patch.object(helper.os,'geteuid',return_value=0),patch.object(Path,'stat',return_value=info),patch.object(helper.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'a'*40+'\trefs/heads/untrusted\n')) as run:
+        with pytest.raises(ValueError,match='dépassée'):helper.main(['a'*40])
+        assert run.call_count==1
