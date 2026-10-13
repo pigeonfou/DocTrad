@@ -164,3 +164,16 @@ class RecoveryTests(unittest.TestCase):
     def test_embedded_and_empty_controls_refused(self):
         for text in ("<|file_separator|>", "Bonjour <|im_end|> suite", "Bonjour <|unknown|>"):
             with self.assertRaises(ValueError): remote_ai.clean_translation(text)
+
+
+class SourceScopeTests(unittest.TestCase):
+    def test_prompt_does_not_seed_absent_identifiers(self):
+        prompt = remote_ai.translation_payload('translategemma', 'Receiver sensitivity')['messages'][0]['content']
+        for name in ('SAASM', 'ISR', 'TOP SECRET'):
+            self.assertNotIn(name, prompt)
+
+    def test_generation_drift_detected_without_rejecting_source_identifiers(self):
+        from app.quality import inference_defects
+        self.assertEqual(inference_defects('Compact dual-channel device', 'Appareil compact 双通道'), ['foreign_script'])
+        self.assertEqual(inference_defects('12 dB SINAD', '12 dB SINAD. SAASM ISR.'), ['invented_identifier'])
+        self.assertEqual(inference_defects('SAASM GPS up to TOP SECRET', 'GPS SAASM jusqu’à TOP SECRET'), [])

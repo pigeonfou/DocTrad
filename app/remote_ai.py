@@ -21,7 +21,7 @@ def translation_payload(model, text):
             "You are a professional English (en) to French (fr) translator. "
             "Produce only the French translation, without explanations or commentary. "
             "Preserve every number, range, measurement unit, acronym and product name. "
-            "Keep the classification TOP SECRET unchanged. Never omit SAASM or ISR. "
+            "Preserve only identifiers present in the source. Never add technical facts or identifiers. "
             "Use concise technical phrasing. Do not expand acronyms into explanatory prose. "
             "Do not append a period to a short label when the source has none. "
             "Please translate the following English text into French:\n\n" + text}]

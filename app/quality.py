@@ -81,3 +81,17 @@ def segment(text, max_chars=1000):
         if current: chunks.append(current)
     return chunks
 
+
+
+def inference_defects(source, target):
+    """Reject unmistakable generation drift without guessing at its meaning."""
+    defects = []
+    foreign = r'[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]'
+    if re.search(foreign, target) and not re.search(foreign, source):
+        defects.append('foreign_script')
+    for identifier in ('SAASM', 'ISR', 'TOP SECRET'):
+        pattern = r'(?<!\w)' + re.escape(identifier) + r'(?!\w)'
+        if re.search(pattern, target) and not re.search(pattern, source):
+            defects.append('invented_identifier')
+            break
+    return defects

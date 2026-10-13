@@ -135,7 +135,7 @@ class RemoteEngine(TransformersEngine):
             return self._request_translation(text)
         except InferenceError as first:
             if first.diagnostic.get("code") not in (
-                    "incomplete_response", "invalid_control_tokens", "empty_response"):
+                    "incomplete_response", "invalid_control_tokens", "empty_response", "foreign_script", "invented_identifier"):
                 raise
             # One recovery round only; no recursion or partial-answer export.
             from .quality import segment
@@ -196,7 +196,13 @@ class RemoteEngine(TransformersEngine):
             diagnostic["markers"] = re.findall(r"<\|[^>]*\|>|<(?:end_of_turn|eos)>", translated)
             code = "invalid_control_tokens"
             from .remote_ai import clean_translation
-            return clean_translation(translated)
+            translated = clean_translation(translated)
+            from .quality import inference_defects
+            defects = inference_defects(text, translated)
+            if defects:
+                code = defects[0]
+                raise ValueError("Réponse hors contraintes de traduction")
+            return translated
         except Exception as exc:
             # Never expose a key, source text or server response through error messages.
             from .diagnostics import InferenceError
