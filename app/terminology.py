@@ -4,6 +4,15 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "Multichannel Manpack": "radio portable multicanal",
+    "Line-of-Sight": "visibilité directe",
+    "Beyond Line-Of-Sight": "hors visibilité directe",
+    "Beyond Line-of-Sight": "hors visibilité directe",
+    "Mobile Ad Hoc Networking": "réseau mobile ad hoc",
+    "Common Operational Picture": "situation opérationnelle commune",
+    "software-defined architecture": "architecture logicielle",
+    "OFF, ON, LD, Z": "OFF, ON, LD, Z",
+    "ARROW, ANW2®C, ANW2D, WRAITH,": "ARROW, ANW2®C, ANW2D, WRAITH,",
     "Frequency Range": "Plage de fréquences",
     "Net Presets": "Préréglages réseau",
     "Voice and Data Modes": "Modes voix/données",
@@ -124,6 +133,8 @@ def reference_label(text, terms):
     import re
     if re.fullmatch(r'\s*[<>≤≥]?\s*[+-]?\d+(?:[.,]\d+)?\s*(?:dBm|dBc|kHz|MHz|GHz|Hz|VDC|VAC|mW|W|ppm)\s*',text):return True
     if re.fullmatch(r'\s*[A-Z]{2,10}\s+v?\d+(?:\.\d+){1,3}\s*',text):return True
+    if re.fullmatch(r'©\s+\d{4}\s+[^|\n]+\|\s*\d{2}/\d{4}\s*\|\s*[A-Z0-9-]+', text.strip()):
+        return True
     # Internet/contact identifiers and postal directory entries are metadata.
     if re.fullmatch(r'\s*(?:\d+\s*\|\s*)?(?:[\w.+-]+@)?[\w-]+(?:\.[\w-]+)+\s*', text):
         return True
@@ -364,4 +375,9 @@ def structured_technical_text(text, terms=None):
         name=security[1]
         names=[terms.get(value,value) for value in (name,'Type-1','Suite A','Suite B')]
         return f'Chiffrement {names[0]} {names[1]} {names[2]} et {names[3]} (selon la forme d’onde)'
+    legal = re.fullmatch(r'NON-EXPORT CONTROLLED: THIS DOCUMENT CONSISTS OF INFORMATION THAT IS NOT DEFINED AS CONTROLLED TECHNICAL DATA UNDER ITAR PART (\d+(?:\.\d+)?) OR TECHNOLOGY UNDER EAR PART (\d+(?:\.\d+)?)\.', text.strip())
+    if legal:
+        return ('NON SOUMIS AU CONTRÔLE DES EXPORTATIONS : CE DOCUMENT NE CONTIENT PAS '
+                'DE DONNÉES TECHNIQUES CONTRÔLÉES AU SENS DE L’ITAR, PARTIE '+legal[1]+
+                ', NI DE TECHNOLOGIE AU SENS DE L’EAR, PARTIE '+legal[2]+'.')
     return None

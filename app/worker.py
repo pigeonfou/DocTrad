@@ -13,6 +13,13 @@ from .diagnostics import record, InferenceError, safe_details
 
 log = logging.getLogger(__name__)
 
+def reusable_translation(source, target, terms):
+    from .quality import inference_defects
+    from .terminology import missing_names
+    return (isinstance(target, str) and bool(target.strip())
+            and not missing_names(source, target, terms)
+            and not inference_defects(source, target))
+
 def export_job(s, job):
     segments = list(s.scalars(select(Segment).where(Segment.job_id == job.id).order_by(Segment.position)))
     report = exports(DATA / 'uploads' / (job.id + job.suffix), job.suffix,
@@ -65,7 +72,7 @@ def _run_job(job_id):
                 memory = s.scalar(select(Memory).where(Memory.owner_id == job.owner_id, Memory.source == text).order_by(Memory.id.desc()).limit(1))
                 from .terminology import correct_network_terms, missing_names
                 cached = correct_network_terms(text,memory.target) if memory else None
-                if cached is not None and not missing_names(text,cached,terms): translated = cached
+                if cached is not None and reusable_translation(text,cached,terms): translated = cached
                 else:
                     with httpx.Client(timeout=300, trust_env=False) as client:
                         response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[text], "contextual":True, "glossary":terms})

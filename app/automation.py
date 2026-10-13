@@ -24,6 +24,7 @@ REFERENCES = {
 }
 FILES = ('manifest.json','source.pdf','translation.pdf','segments.json','diagnostics.json','layout-report.json')
 QA_USER = '__doctrad_public_reference_qa__'
+CURRENT_RELEASE = Path('/opt/oneforall/apps/doctrad/current')
 
 
 def root():
@@ -65,12 +66,21 @@ def write_json(path,value):
     os.replace(temporary,path)
 
 
+def release_revision():
+    """Report the installed release, independently of remote model settings."""
+    import re
+    current = CURRENT_RELEASE.resolve().name
+    if CURRENT_RELEASE.is_symlink() and re.fullmatch(r'[a-f0-9]{40}', current):
+        return current
+    return next((path.name for path in Path(__file__).resolve().parents
+                 if re.fullmatch(r'[a-f0-9]{40}',path.name)), None)
+
 def snapshot(db,job,source):
     path,digest=source
     from .diagnostics import history
     rows=list(db.scalars(select(Segment).where(Segment.job_id==job.id).order_by(Segment.position)))
     summary=dict(job_id=job.id,status=job.status,progress=job.progress,model_id=job.model_id,
-        model_revision=job.model_version,reference=REFERENCES[digest],source_sha256=digest,
+        model_revision=job.model_version,application_revision=release_revision(),reference=REFERENCES[digest],source_sha256=digest,
         segments=len(rows),warning_count=sum(len(row.warnings or []) for row in rows),
         elapsed_seconds=job.elapsed,human_review_required=True)
     # Publish a complete bundle atomically; failed/unfinished jobs cannot leave

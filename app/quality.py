@@ -59,7 +59,9 @@ def check(source, target):
     if canonical(re.findall(comparisons, source)) != canonical(re.findall(comparisons, target)):
         warnings.append("Comparaison chiffrée absente ou modifiée")
     from .terminology import DEFAULT_TERMS
-    exact_heading = DEFAULT_TERMS.get(source.strip()) == target.strip()
+    from .terminology import structured_technical_text
+    exact_heading = (DEFAULT_TERMS.get(source.strip()) == target.strip()
+                     or structured_technical_text(source) == target.strip())
     def references(text):
         return [value[:-1] if re.fullmatch(r'[A-Z]{2,}s', value) else value for value in TECH.findall(text)]
     if not exact_heading and canonical(references(source)) != canonical(references(target)):
@@ -100,6 +102,18 @@ def inference_defects(source, target):
         if re.search(pattern, target) and not re.search(pattern, source):
             defects.append('invented_identifier')
             break
+    import json
+    from .terminology import required_names
+    body, separator, last = target.rstrip().rpartition('\n')
+    if separator and body.strip():
+        try:
+            echoed = json.loads(last)
+        except (ValueError, TypeError):
+            echoed = None
+        names = set(required_names(source).values())
+        if (isinstance(echoed, list) and echoed and all(isinstance(item,str) for item in echoed)
+                and set(echoed) <= names and last not in source):
+            defects.append('prompt_echo')
     return defects
 
 

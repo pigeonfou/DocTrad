@@ -94,3 +94,20 @@ def test_unchanged_native_table_label_is_visible_and_uses_the_label_font(tmp_pat
     font_name=re.findall(r'/(\S+)\s+[\d.]+\s+Tf',label)[-1]
     assert 'Bold' in str(page['/Resources']['/Font']['/'+font_name].get_object()['/BaseFont'])
     assert report['typography_groups'][0]['role']=='table_labels'
+
+
+def test_centered_native_label_can_reflow_inside_its_empty_cell(tmp_path):
+    source=tmp_path/'source.pdf';target=tmp_path/'target.pdf'
+    pdf=canvas.Canvas(str(source),pagesize=(612,792));pdf.setFont('Helvetica',7)
+    pdf.drawString(40,741,'Sand/Dust/Salt/Fog/Rain');pdf.drawString(140,741,'MIL-STD-810G');pdf.save()
+    ratio=2500/792
+    def scaled(box):return [round(v*ratio) for v in box]
+    common=dict(page=1,confidence=.99,native_text=True,source_font_size=7,source_bold=False)
+    segments=[dict(common,text='Sand/Dust/Salt/Fog/Rain',box=scaled([40,45,130,52]),table_cell=scaled([35,40,135,55])),
+              dict(common,text='MIL-STD-810G',box=scaled([140,45,220,52]),table_cell=scaled([135,40,280,55]))]
+    translated='Sable / poussière / sel / brouillard / pluie'
+    report=export_pdf(source,[translated,'MIL-STD-810G'],segments,target)
+    assert not any('zone originale conservée' in warning['reason'] for warning in report['warnings'])
+    text=PdfReader(target).pages[0].extract_text()
+    assert 'poussière' in text and 'brouillard' in text
+    assert report['reflowed_cells'][0]['segment']==0

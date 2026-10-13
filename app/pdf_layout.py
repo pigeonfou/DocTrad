@@ -156,7 +156,7 @@ def clean_text_patch(image, box, background, foreground=None, preserve_rules=Fal
     return patch
 
 
-def harmonize_text_draws(draws, segments, source_sizes, labels, report=None):
+def harmonize_text_draws(draws, segments, source_sizes, labels, report=None, excluded=()):
     """Use a shared fitted size for body text with the same source typography.
 
     Never enlarge a fitted paragraph past its verified bounds. Exceptional
@@ -166,7 +166,7 @@ def harmonize_text_draws(draws, segments, source_sizes, labels, report=None):
     for draw in draws:
         x,y,font,size,text,scale,colour,invisible,index = draw
         source = source_sizes.get(index)
-        if invisible or source is None or (index not in labels and heading(segments[index])): continue
+        if invisible or source is None or index in excluded or (index not in labels and heading(segments[index])): continue
         if size < source*.8: continue
         key = ('label' if index in labels else bool(segments[index].get('table_cell')),font,source)
         groups.setdefault(key,[]).append(draw)
@@ -179,7 +179,7 @@ def harmonize_text_draws(draws, segments, source_sizes, labels, report=None):
     for draw in draws:
         x,y,font,size,text,scale,colour,invisible,index = draw
         key = ('label' if index in labels else bool(segments[index].get('table_cell')),font,source_sizes.get(index))
-        if not invisible and (index in labels or not heading(segments[index])) and key in common and size >= key[2]*.8:
+        if not invisible and index not in excluded and (index in labels or not heading(segments[index])) and key in common and size >= key[2]*.8:
             fitted = common[key]
             # Keep the top edge aligned when a baseline's font becomes smaller.
             y += ink_metrics(text,font,size)[0]-ink_metrics(text,font,fitted)[0]
@@ -235,6 +235,7 @@ def export_pdf(original, targets, segments, destination):
                 pdf.drawImage(ImageReader(image), 0, 0, width=width, height=height)
                 sx, sy = width / image.width, height / image.height
                 source_sizes = page_typography(segments,page_number,sx,sy,regular_font,bold_font)
+                exceptional_labels = set()
                 labels = table_labels(segments, page_number)
                 text_draws = []
                 marker_draws = {}
@@ -446,6 +447,39 @@ def export_pdf(original, targets, segments, destination):
                             if fits:
                                 break
                             size -= .25
+                        if (size < minimum_size and cell and index in labels and segment.get('native_text')
+                                and sum(other.get('page')==page_number and other.get('table_cell')==cell
+                                        for other in segments)==1):
+                            # A centered one-line source can need two French lines.
+                            # Reflow only within a verified uniform cell; never over artwork.
+                            uniform = all(
+                                mask[0] <= col < mask[2] and mask[1] <= row < mask[3]
+                                or max(abs(a-b) for a,b in zip(pixels[col,row],background)) <= 30
+                                for row in range(int(cell[1])+4,int(cell[3])-4)
+                                for col in range(int(cell[0])+4,int(cell[2])-4))
+                            if uniform:
+                                available_height=(cell[3]-cell[1])*sy-2
+                                size=source_size
+                                while size >= minimum_size:
+                                    leading=size*1.18
+                                    fits=False
+                                    for horizontal_scale in (1,.95):
+                                        wrapped=wrap(target,size,horizontal_scale)
+                                        ascent=max(ink_metrics(line,font,size)[0] for line in wrapped)
+                                        descent=max(ink_metrics(line,font,size)[1] for line in wrapped)
+                                        occupied=(len(wrapped)-1)*leading+ascent+descent
+                                        if occupied <= available_height and all(
+                                                pdfmetrics.stringWidth(line,font,size)*horizontal_scale <= available_width
+                                                for line in wrapped):
+                                            fits=True
+                                            break
+                                    if fits:
+                                        y0=cell[1]+((cell[3]-cell[1])*sy-occupied)/2/sy
+                                        exceptional_labels.add(index)
+                                        report.setdefault('reflowed_cells',[]).append(
+                                            dict(segment=index,page=page_number,font_size=round(size,2)))
+                                        break
+                                    size-=.25
                         if size < minimum_size:
                             report['warnings'].append({'segment': index, 'page': page_number,
                                 'reason': 'Paragraphe trop long : zone originale conservée'})
@@ -508,7 +542,7 @@ def export_pdf(original, targets, segments, destination):
                     text_draws.append((x,baseline,font,size,target,1,foreground,False,index))
                 # Every source mask must precede every translated glyph. OCR
                 # boxes can overlap; later masks must not clip earlier text.
-                text_draws = harmonize_text_draws(text_draws, segments, source_sizes, labels, report)
+                text_draws = harmonize_text_draws(text_draws, segments, source_sizes, labels, report, exceptional_labels)
                 ordered_draws=[]
                 for draw in text_draws:
                     marker_draw=marker_draws.pop(draw[-1],None)

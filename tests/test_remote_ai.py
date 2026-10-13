@@ -213,3 +213,9 @@ def test_only_exact_source_scoped_recovery_echo_is_removed():
     assert strip_identifier_echo('Source contains ["Windows", "CPA"]', 'Traduction\n["Windows", "CPA"]', names).endswith(']')
     assert strip_identifier_echo('Windows CPA', 'Texte\n["Other"]', names).endswith(']')
     assert strip_identifier_echo('Windows CPA', '["Windows", "CPA"]', names) == '["Windows", "CPA"]'
+
+
+def test_unsolicited_identifier_annex_is_rejected_on_first_response():
+    from app.quality import inference_defects
+    assert inference_defects('Windows CPA application', 'Application Windows CPA\n["Windows", "CPA"]') == ['prompt_echo']
+    assert not inference_defects('Names ["Windows", "CPA"]', 'Noms ["Windows", "CPA"]')

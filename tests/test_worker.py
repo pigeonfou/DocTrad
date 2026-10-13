@@ -122,3 +122,12 @@ def test_remote_job_waits_when_another_worker_holds_bc250(monkeypatch):
     with Session() as db:assert db.get(Job,'remote-lock-job').status=='queued'
     run_job('remote-lock-job')
     assert calls==['remote-lock-job']
+
+
+def test_defective_memories_are_retranslated_without_deleting_user_entries():
+    from app.worker import reusable_translation
+    from app.terminology import terminology
+    assert reusable_translation('Windows CPA application', 'Application Windows CPA', terminology())
+    assert not reusable_translation('Compact dual-channel device', 'Appareil compact 双通道', terminology())
+    assert not reusable_translation('Windows CPA application', 'Application Windows CPA\n["Windows", "CPA"]', terminology())
+    assert not reusable_translation('Internal SAASM GPS', 'GPS interne', terminology())

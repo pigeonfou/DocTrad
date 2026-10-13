@@ -165,7 +165,7 @@ class RemoteEngine(TransformersEngine):
             return self._request_translation(text)
         except InferenceError as first:
             if first.diagnostic.get("code") not in (
-                    "incomplete_response", "invalid_control_tokens", "empty_response", "foreign_script", "invented_identifier"):
+                    "incomplete_response", "invalid_control_tokens", "empty_response", "foreign_script", "invented_identifier", "prompt_echo"):
                 raise
             # One recovery round only; no recursion or partial-answer export.
             from .quality import segment

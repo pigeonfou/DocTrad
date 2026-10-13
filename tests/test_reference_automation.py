@@ -108,3 +108,21 @@ def test_probe_exposes_capabilities_and_context_without_credentials(reference,mo
     encoded=json.dumps(report)
     for private in ('/private/key','192.168.6.22','super-secret'):
         assert private not in encoded
+
+
+def test_release_revision_is_independent_of_model_revision(monkeypatch):
+    from app import automation
+    sha='a'*40
+    monkeypatch.setattr(automation,'__file__','/opt/oneforall/apps/doctrad/releases/'+sha+'/.venv/lib/python3/site-packages/app/automation.py')
+    assert automation.release_revision()==sha
+    monkeypatch.setattr(automation,'__file__','/workspace/app/automation.py')
+    assert automation.release_revision() is None
+
+
+def test_active_release_takes_priority_over_a_reused_venv(monkeypatch,tmp_path):
+    from app import automation
+    current=tmp_path/'current';active=tmp_path/('b'*40);active.mkdir()
+    current.symlink_to(active,target_is_directory=True)
+    monkeypatch.setattr(automation,'CURRENT_RELEASE',current)
+    monkeypatch.setattr(automation,'__file__','/opt/oneforall/apps/doctrad/releases/'+('a'*40)+'/.venv/lib/python3/site-packages/app/automation.py')
+    assert automation.release_revision()=='b'*40

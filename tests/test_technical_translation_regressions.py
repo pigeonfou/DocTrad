@@ -180,3 +180,15 @@ def test_structured_encryption_label_keeps_source_names_and_glossary():
     assert structured_technical_text(source) == 'Chiffrement Denali Type-1 Suite A et Suite B (selon la forme d’onde)'
     assert structured_technical_text(source, {'Denali':'Nom personnalisé'}).startswith('Chiffrement Nom personnalisé ')
     assert structured_technical_text(source.replace('Suite B','Suite C')) is None
+
+
+def test_regulatory_notice_preserves_controlled_status_and_part_numbers():
+    from app.terminology import structured_technical_text, reference_label
+    from app.quality import check
+    source='NON-EXPORT CONTROLLED: THIS DOCUMENT CONSISTS OF INFORMATION THAT IS NOT DEFINED AS CONTROLLED TECHNICAL DATA UNDER ITAR PART 120.33 OR TECHNOLOGY UNDER EAR PART 772.'
+    target=structured_technical_text(source)
+    assert 'DONNÉES TECHNIQUES CONTRÔLÉES' in target
+    assert '120.33' in target and '772' in target
+    assert not check(source,target)
+    assert check(source,target.replace('120.33','120.34'))
+    assert reference_label('© 2026 L3Harris Technologies, Inc. | 07/2026 | L33398',{})
