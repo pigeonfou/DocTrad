@@ -32,6 +32,15 @@ class DocumentContextTests(unittest.TestCase):
         self.assertEqual(context['following'],'Next')
         self.assertNotIn('Wrong column',str(context))
 
+    def test_spanning_table_header_is_section_but_uppercase_value_is_not(self):
+        items=[item('ENVIRONMENTAL',[0,0,90,15],[0,0,200,20]),
+               item('MIL-STD-810G',[110,25,190,35],[100,20,200,40]),
+               item('Depth',[0,45,90,55],[0,40,100,60]),
+               item('2 m',[110,45,190,55],[100,40,200,60])]
+        context=translation_context(items,3)
+        self.assertEqual(context['section'],'ENVIRONMENTAL')
+        self.assertEqual(context['row'],'Depth')
+
     def test_text_documents_have_adjacent_passages(self):
         context=translation_context([{'text':'First'},{'text':'Second'},{'text':'Third'}],1)
         self.assertEqual(context['preceding'],'First')

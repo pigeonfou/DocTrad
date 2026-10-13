@@ -31,10 +31,18 @@ def translation_context(items, index):
                                       sorted(row, key=lambda pair: pair[1]['box'][0]))[:500]
     preceding = [(i, item) for i, item in peers if same_column(item)
                  and item['box'][3] <= box[1]]
-    headings = [(i, item) for i, item in preceding
-                if not item.get('table_cell') and
-                (item.get('source_bold') or
-                 (len(re.sub(r'[^a-zA-Z]', '', item['text'])) >= 4 and item['text'].isupper()))]
+    def section_heading(item):
+        cell = item.get('table_cell')
+        current_cell = current.get('table_cell')
+        spanning = not cell or (current_cell and
+                                cell[2]-cell[0] > 1.25*(current_cell[2]-current_cell[0]))
+        capitals = len(re.sub(r'[^a-zA-Z]', '', item['text'])) >= 4 and item['text'].isupper()
+        return (item.get('source_bold') and not cell) or (capitals and spanning)
+    headings = [(i, item) for i, item in peers
+                if item.get('box') and item['box'][3] <= box[1] and section_heading(item)
+                and (same_column(item) or
+                     (item.get('table_cell') and item['table_cell'][0] <= box[0]
+                      and item['table_cell'][2] >= box[2]))]
     if headings:
         context['section'] = max(headings, key=lambda pair: pair[1]['box'][3])[1]['text'][:250]
     # Table rows already give better context than unrelated neighbouring values.
