@@ -126,3 +126,10 @@ class TechnicalTranslationRegressions(unittest.TestCase):
         self.assertEqual(correct_network_terms('Android is a registered trademark of Google LLC.',target),target)
 
 if __name__=='__main__':unittest.main()
+
+
+def test_crossbanding_articles_are_source_anchored():
+    from app.terminology import correct_network_terms
+    assert correct_network_terms('Uses crossbanding', 'Utilise le interconnexion interbande') == 'Utilise l’interconnexion interbande'
+    assert correct_network_terms('Advanced crossbanding', 'Un système de interconnexion interbande') == 'Un système d’interconnexion interbande'
+    assert correct_network_terms('Unrelated source', 'Utilise le interconnexion interbande') == 'Utilise le interconnexion interbande'

@@ -197,6 +197,8 @@ def correct_network_terms(source, target):
         target=re.sub(r'\bLe radio\b','La radio',target)
     if re.search(r'\bcrossbanding\b',source,re.I):
         target=re.sub(r'\bla bande croisée\b','l’interconnexion interbande',target,flags=re.I)
+        target=re.sub(r'\b(?:le|la) interconnexion interbande\b', 'l’interconnexion interbande', target, flags=re.I)
+        target=re.sub(r'\bde interconnexion interbande\b', 'd’interconnexion interbande', target, flags=re.I)
     # Restore a dropped minus only at an unambiguous measurement/unit anchor.
     for match in re.finditer(r'(?<![\w.,])[-−](\d+(?:[.,]\d+)?)\s*([°A-Za-z][°A-Za-z0-9/]*)',source):
         # A spaced range separator (30 - 2600 MHz) is not a sign either.
