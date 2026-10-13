@@ -92,7 +92,8 @@ def test_only_named_candidate_branch_head_can_reach_privileged_update():
     responses=[subprocess.CompletedProcess([],0,heads),subprocess.CompletedProcess([],7)]
     with patch.object(helper.os,'geteuid',return_value=0),patch.object(Path,'stat',return_value=info),patch.object(helper.subprocess,'run',side_effect=responses) as run:
         assert helper.main(['a'*40]) == 7
-        assert run.call_args.args[0] == helper.command('a'*40)
+        assert run.call_args.args[0] == helper.candidate_command('a'*40)
+        assert 'refonte-contexte-mise-en-page' in run.call_args.args[0][3]
 
 
 def test_unapproved_reference_is_rejected_even_with_matching_sha():
@@ -100,3 +101,12 @@ def test_unapproved_reference_is_rejected_even_with_matching_sha():
     with patch.object(helper.os,'geteuid',return_value=0),patch.object(Path,'stat',return_value=info),patch.object(helper.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'a'*40+'\trefs/heads/untrusted\n')) as run:
         with pytest.raises(ValueError,match='dépassée'):helper.main(['a'*40])
         assert run.call_count==1
+
+
+def test_candidate_command_has_fixed_ref_and_rejects_diagnostic_input():
+    invocation=helper.candidate_command('a'*40)
+    assert invocation[:3]==['/usr/bin/python3','-I','-c']
+    assert invocation[-4:]==['--apps','doctrad','--sha','a'*40]
+    assert "APPS['doctrad']['ref']='refonte-contexte-mise-en-page'" in invocation[3]
+    for argument in ('--status','--config','main','b'*40+';id'):
+        with pytest.raises(ValueError):helper.candidate_command(argument)

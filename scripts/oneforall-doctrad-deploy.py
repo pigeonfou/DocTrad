@@ -33,6 +33,18 @@ def command(argument):
     return ['/usr/bin/python3',str(MANAGER/'cli.py'),'update','--apps','doctrad','--sha',argument]
 
 
+def candidate_command(argument):
+    command(argument)
+    if argument.startswith('--'):
+        raise ValueError('Le déploiement de branche exige un SHA.')
+    # The ref is a fixed trusted constant, never caller input. APPS is shared
+    # by cli/deploy only in this child process; on-disk configuration is unchanged.
+    source = ("import sys; sys.path.insert(0, '/opt/oneforall/manager/oneforall'); "
+              "from common import APPS; APPS['doctrad']['ref']='refonte-contexte-mise-en-page'; "
+              "import cli; cli.main(sys.argv[1:])")
+    return ['/usr/bin/python3','-I','-c',source,'update','--apps','doctrad','--sha',argument]
+
+
 def automation(argument):
     sys.path.insert(0,str(MANAGER))
     from common import app_env,user
@@ -110,6 +122,8 @@ def main(argv=None):
                  if len(parts := line.split()) == 2 and parts[1] in DEPLOY_REFS}
         if args[0] not in heads.values():
             raise ValueError('Version dépassée : déployer uniquement le SHA actuel d’une branche autorisée après validation CI.')
+        if heads.get('refs/heads/refonte-contexte-mise-en-page') == args[0] and heads.get('refs/heads/main') != args[0]:
+            invocation=candidate_command(args[0])
     result=subprocess.run(invocation,env=ENV,cwd='/',check=False).returncode
     if result==0 and not args[0].startswith('--'):refresh_helper(args[0])
     return result
