@@ -138,3 +138,14 @@ def test_crossbanding_articles_are_source_anchored():
 def test_security_identifier_spelling_repairs_are_source_anchored():
     assert correct_network_terms('Type-1 Suite A and Suite B', 'type 1 SuiteA et suite b') == 'Type-1 Suite A et Suite B'
     assert correct_network_terms('Another type', 'type 1 SuiteA') == 'type 1 SuiteA'
+
+def test_radio_labels_keep_meaning_and_do_not_add_punctuation():
+    from app.translation import RemoteEngine
+    from app.terminology import terminology
+    engine = RemoteEngine()
+    with patch.object(engine, '_translate_prose', side_effect=AssertionError('Label should not need inference')):
+        assert engine.translate_contextual('Power Input', terminology()) == 'Tension d’alimentation'
+        assert engine.translate_contextual('Net Presets', terminology()) == 'Préréglages réseau'
+        assert engine.translate_contextual('Squelch', terminology()) == 'Silencieux'
+        assert engine.translate_contextual('Encryption', terminology()) == 'Chiffrement'
+        assert engine.translate_contextual('Key Fill', terminology({'Key Fill': 'Injection des clés'})) == 'Injection des clés'

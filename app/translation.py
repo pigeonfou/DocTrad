@@ -186,9 +186,11 @@ class RemoteEngine(TransformersEngine):
         if retry and "translategemma" in self.settings["model"].lower():
             payload["repetition_penalty"] = 1.1
             payload["max_tokens"] = 512
+            from .terminology import required_names
+            recovery_names = list(required_names(text, getattr(self, "context_terms", None)).values())
             payload["messages"][0]["content"] = (
-                "Return one complete French translation only. Keep the original spelling of identifiers "
-                "within the sentence. Do not append lists, notes or explanations.\n"
+                "Preserve these source identifiers exactly: " + json.dumps(recovery_names, ensure_ascii=False)
+                + ". Return one complete French translation only. Never omit or add identifiers.\n"
                 + payload["messages"][0]["content"])
 
         key = Path(self.settings["key_file"]).read_text().strip()
@@ -224,6 +226,9 @@ class RemoteEngine(TransformersEngine):
             code = "invalid_control_tokens"
             from .remote_ai import clean_translation
             translated = clean_translation(translated)
+            if retry and "translategemma" in self.settings["model"].lower():
+                from .quality import strip_identifier_echo
+                translated = strip_identifier_echo(text, translated, recovery_names)
             from .quality import inference_defects
             defects = inference_defects(text, translated)
             if defects:

@@ -204,3 +204,12 @@ def test_remote_name_recovery_keeps_whole_sentence_and_fails_on_second_loss():
         with pytest.raises(InferenceError) as failure:
             engine.recover_names(source, {})
         assert failure.value.diagnostic['code'] == 'missing_identifier'
+
+
+def test_only_exact_source_scoped_recovery_echo_is_removed():
+    from app.quality import strip_identifier_echo
+    names = ['Windows', 'CPA']
+    assert strip_identifier_echo('Windows application CPA', 'Application Windows CPA.\n["Windows", "CPA"]', names) == 'Application Windows CPA.'
+    assert strip_identifier_echo('Source contains ["Windows", "CPA"]', 'Traduction\n["Windows", "CPA"]', names).endswith(']')
+    assert strip_identifier_echo('Windows CPA', 'Texte\n["Other"]', names).endswith(']')
+    assert strip_identifier_echo('Windows CPA', '["Windows", "CPA"]', names) == '["Windows", "CPA"]'

@@ -95,3 +95,18 @@ def inference_defects(source, target):
             defects.append('invented_identifier')
             break
     return defects
+
+
+def strip_identifier_echo(source, target, names):
+    """Remove only an exact echoed recovery instruction on its own final line."""
+    import json
+    body, separator, last = target.rstrip().rpartition('\n')
+    if not separator or not body.strip() or not names:
+        return target
+    try:
+        echoed = json.loads(last)
+    except (ValueError, TypeError):
+        return target
+    if echoed == names and json.dumps(names, ensure_ascii=False) not in source:
+        return body.rstrip()
+    return target
