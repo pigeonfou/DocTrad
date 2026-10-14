@@ -230,7 +230,8 @@ def required_names(source, terms=None):
     prose_caps = source.isupper() and len(source.split()) >= 4
     common = {'THE','AND','OR','FOR','WITH','ONLY','TO','OF','IN','ON','IS','ARE',
               'NOT','THIS','THAT','ALL','FROM','BY','AS','AT','AN','IT','BE','CAN'}
-    localized = {key.upper() for key,value in terms.items() if key != value}
+    localized = {word for key,value in {**DEFAULT_TERMS, **terms}.items() if key != value
+                 for word in re.findall(r'[A-Z]+', key.upper())}
     if not prose_caps:
         for name in re.findall(r'(?<!\w)[A-Z][A-Z0-9]{1,4}(?!\w)', source):
             if name not in common and name not in localized:
