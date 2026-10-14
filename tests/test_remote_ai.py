@@ -234,7 +234,7 @@ def test_plain_identifier_echo_requires_complete_earlier_coverage():
     assert strip_identifier_echo(original_list,body+'\nTSM-X MANET SATCOM COP',names).endswith('COP')
 
 
-def test_transient_server_error_has_one_identical_payload_retry():
+def test_transient_server_error_has_bounded_identical_payload_retries():
     from app.diagnostics import InferenceError
     engine=RemoteEngine()
     with patch.object(engine,'_request_translation',side_effect=[InferenceError('http_error',{'http_status':500}),'Traduction complète']) as call, patch('time.sleep'):
@@ -244,7 +244,7 @@ def test_transient_server_error_has_one_identical_payload_retry():
     with patch.object(engine,'_request_translation',side_effect=InferenceError('http_error',{'http_status':503})) as call, patch('time.sleep'):
         import pytest
         with pytest.raises(InferenceError) as failed:engine._translate_prose('A complete sentence')
-        assert call.call_count==2 and failed.value.diagnostic['attempt']==2
+        assert call.call_count==3 and failed.value.diagnostic['attempt']==3
     with patch.object(engine,'_request_translation',side_effect=InferenceError('http_error',{'http_status':401})) as call:
         import pytest
         with pytest.raises(InferenceError):engine._translate_prose('A complete sentence')
@@ -299,7 +299,7 @@ def test_drift_recovery_keeps_long_source_as_one_passage():
         call.assert_called_with(text,retry=True)
 
 
-def test_interrupted_inference_connection_has_one_bounded_retry():
+def test_interrupted_inference_connection_has_bounded_retries():
     from app.diagnostics import InferenceError
     engine=RemoteEngine()
     with patch.object(engine,'_request_translation',side_effect=[InferenceError('remote_error',{'exception':'URLError'}),'Traduction complète']) as call,patch('time.sleep'):
@@ -308,4 +308,46 @@ def test_interrupted_inference_connection_has_one_bounded_retry():
     with patch.object(engine,'_request_translation',side_effect=InferenceError('remote_error',{'exception':'URLError'})) as call,patch('time.sleep'):
         import pytest
         with pytest.raises(InferenceError) as error:engine._translate_prose('Source sentence')
-        assert call.call_count==2 and error.value.diagnostic['attempt']==2
+        assert call.call_count==3 and error.value.diagnostic['attempt']==3
+
+
+def test_transient_outage_recovers_on_third_identical_request():
+    from app.diagnostics import InferenceError
+    engine = RemoteEngine()
+    failures = [InferenceError('remote_error', {'exception':'URLError', 'http_status':503}) for _ in range(2)]
+    with patch.object(engine, '_request_translation', side_effect=[*failures, 'Texte complet']) as request, patch('time.sleep') as pause:
+        assert engine._translate_prose('Complete source') == 'Texte complet'
+    assert [call.args for call in request.call_args_list] == [('Complete source',)] * 3
+    assert [call.kwargs for call in request.call_args_list] == [{}] * 3
+    assert [call.args for call in pause.call_args_list] == [(1,), (3,)]
+
+
+def test_authentication_and_semantic_errors_do_not_get_transport_retries():
+    import pytest
+    from app.diagnostics import InferenceError
+    engine = RemoteEngine()
+    for failure in [InferenceError('remote_error', {'exception':'URLError', 'http_status':401}), InferenceError('missing_identifier', {})]:
+        with patch.object(engine, '_request_translation', side_effect=failure) as request, patch('time.sleep') as pause:
+            with pytest.raises(InferenceError): engine._request_with_transport_retry('Source', retry=True)
+        assert request.call_count == 1
+        pause.assert_not_called()
+
+
+def test_recovery_requests_also_retry_transport_without_changing_prompt():
+    from app.diagnostics import InferenceError
+    engine = RemoteEngine()
+    source = 'DSP processing supports PLI'
+    with patch.object(engine, '_request_translation', side_effect=[InferenceError('http_error', {'http_status':503}), 'Le DSP prend en charge PLI']) as request, patch('time.sleep'):
+        assert engine.recover_names(source, {}) == 'Le DSP prend en charge PLI'
+    assert all(call.args == (source,) and call.kwargs == {'retry':True} for call in request.call_args_list)
+
+
+def test_context_deadline_stops_retry_without_sleep():
+    import pytest
+    from app.diagnostics import InferenceError
+    engine = RemoteEngine()
+    engine.inference_deadline = 100
+    with patch('time.monotonic', return_value=100), patch('time.sleep') as pause, patch.object(engine, '_request_translation', side_effect=InferenceError('http_error', {'http_status':503})) as request:
+        with pytest.raises(InferenceError): engine._translate_prose('Source')
+    assert request.call_count == 1
+    pause.assert_not_called()

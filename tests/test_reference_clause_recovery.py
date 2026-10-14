@@ -60,7 +60,7 @@ class ReferenceClauseRecoveryTests(unittest.TestCase):
     def test_remote_failure_remains_failure(self):
         source = 'DSP processing supports PLI; TRL maturity is evaluated independently'
         failure = InferenceError('http_error', {'http_status': 503})
-        with patch.object(RemoteEngine, '_request_translation', side_effect=['Traitement', failure]):
+        with patch.object(RemoteEngine, '_request_translation', side_effect=['Traitement', failure, failure, failure]), patch('time.sleep'):
             with self.assertRaises(InferenceError) as caught:
                 RemoteEngine().recover_names(source, {})
         self.assertIs(caught.exception, failure)

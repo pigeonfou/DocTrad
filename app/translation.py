@@ -131,6 +131,8 @@ class TransformersEngine(TranslationEngine):
 class RemoteEngine(TransformersEngine):
     """Reuse terminology protection, with inference on an explicitly configured LAN host."""
     def translate_contextual(self, text, glossary=None, context=None):
+        import time
+        self.inference_deadline = time.monotonic() + 270
         self.context_terms = glossary or {}
         self.document_context = context or {}
         try:
@@ -138,6 +140,7 @@ class RemoteEngine(TransformersEngine):
         finally:
             self.context_terms = {}
             self.document_context = {}
+            self.inference_deadline = None
 
     def load(self, manifest):
         from .remote_ai import settings, manifest as configured_manifest
@@ -159,7 +162,7 @@ class RemoteEngine(TransformersEngine):
         from .terminology import missing_names
         from .diagnostics import InferenceError
         from .terminology import correct_network_terms
-        target = correct_network_terms(text, self._request_translation(text, retry=True), terms)
+        target = correct_network_terms(text, self._request_with_transport_retry(text, retry=True), terms)
         if missing_names(text, target, terms):
             # Recover independent clauses only after full-passage inference
             # failed twice. Never split at a name or arbitrary character limit.
@@ -171,7 +174,7 @@ class RemoteEngine(TransformersEngine):
                 recovered = []
                 for clause in clauses:
                     candidate = correct_network_terms(
-                        clause, self._request_translation(clause.strip(), retry=True), terms)
+                        clause, self._request_with_transport_retry(clause.strip(), retry=True), terms)
                     if missing_names(clause, candidate, terms):
                         break
                     recovered.append(candidate.strip())
@@ -182,30 +185,42 @@ class RemoteEngine(TransformersEngine):
             raise InferenceError('missing_identifier', {'characters': len(text), 'attempt': 2})
         return target
 
+    def _request_with_transport_retry(self, text, **kwargs):
+        from .diagnostics import InferenceError
+        import time
+        for attempt in range(1, 4):
+            try:
+                return self._request_translation(text, **kwargs)
+            except InferenceError as error:
+                detail = error.diagnostic
+                status = detail.get('http_status')
+                transient = (status in (500, 502, 503, 504) or
+                             (status is None and detail.get('code') == 'remote_error'
+                              and detail.get('exception') in ('URLError', 'ConnectionResetError')))
+                if not transient or attempt == 3:
+                    detail['attempt'] = attempt
+                    raise
+                delay = (1, 3)[attempt - 1]
+                deadline = getattr(self, 'inference_deadline', None)
+                if deadline is not None and time.monotonic() + delay >= deadline:
+                    detail['attempt'] = attempt
+                    raise
+                time.sleep(delay)
+
     def _translate_prose(self, text):
         from .diagnostics import InferenceError
         try:
-            return self._request_translation(text)
+            return self._request_with_transport_retry(text)
         except InferenceError as first:
-            if ((first.diagnostic.get("code") == "http_error" and first.diagnostic.get("http_status") in (500, 502, 503, 504))
-                    or (first.diagnostic.get("code") == "remote_error" and first.diagnostic.get("exception") in ("URLError", "ConnectionResetError"))):
-                # Translation is read-only: retry one transient server failure with
-                # the identical payload, never authentication or arbitrary failures.
-                import time
-                time.sleep(1)
-                try:
-                    return self._request_translation(text)
-                except InferenceError as last:
-                    last.diagnostic["attempt"] = 2
-                    raise
             if first.diagnostic.get("code") not in (
                     "incomplete_response", "invalid_control_tokens", "empty_response", "foreign_script", "invented_identifier", "prompt_echo"):
                 raise
-            # One recovery round only; no recursion or partial-answer export.
+            # Semantic recovery changes the prompt once; transport retries keep
+            # that prompt identical and share the contextual inference deadline.
             try:
-                return self._request_translation(text, retry=True)
+                return self._request_with_transport_retry(text, retry=True)
             except InferenceError as last:
-                last.diagnostic["attempt"] = 2
+                last.diagnostic['attempt'] = max(2, last.diagnostic.get('attempt', 1))
                 raise
 
     def _request_translation(self, text, retry=False):
@@ -236,7 +251,12 @@ class RemoteEngine(TransformersEngine):
         diagnostic = {"characters": len(text)}
         code = "remote_error"
         try:
-            with opener.open(request, timeout=180) as response:
+            import time
+            deadline = getattr(self, 'inference_deadline', None)
+            timeout = min(90, deadline - time.monotonic()) if deadline is not None else 90
+            if timeout <= 0:
+                raise TimeoutError('Inference time budget exhausted')
+            with opener.open(request, timeout=timeout) as response:
                 raw = response.read(1024*1024 + 1)
                 if len(raw) > 1024*1024:
                     code = "response_too_large"
