@@ -232,3 +232,20 @@ def test_plain_identifier_echo_requires_complete_earlier_coverage():
     assert strip_identifier_echo(source,body+'\nSATCOM COP 3.2',names).endswith('3.2')
     original_list=source+'\nTSM-X MANET SATCOM COP'
     assert strip_identifier_echo(original_list,body+'\nTSM-X MANET SATCOM COP',names).endswith('COP')
+
+
+def test_transient_server_error_has_one_identical_payload_retry():
+    from app.diagnostics import InferenceError
+    engine=RemoteEngine()
+    with patch.object(engine,'_request_translation',side_effect=[InferenceError('http_error',{'http_status':500}),'Traduction complète']) as call, patch('time.sleep'):
+        assert engine._translate_prose('A complete sentence')=='Traduction complète'
+        assert call.call_count==2
+        assert call.call_args.kwargs=={}
+    with patch.object(engine,'_request_translation',side_effect=InferenceError('http_error',{'http_status':503})) as call, patch('time.sleep'):
+        import pytest
+        with pytest.raises(InferenceError) as failed:engine._translate_prose('A complete sentence')
+        assert call.call_count==2 and failed.value.diagnostic['attempt']==2
+    with patch.object(engine,'_request_translation',side_effect=InferenceError('http_error',{'http_status':401})) as call:
+        import pytest
+        with pytest.raises(InferenceError):engine._translate_prose('A complete sentence')
+        assert call.call_count==1

@@ -4,6 +4,8 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "software-defined manpack": "radio logicielle portable",
+    "manpack": "radio portable",
     "High Assurances architecture": "architecture à haute assurance",
     "High Assurances": "à haute assurance",
     "Multichannel Manpack Radio": "radio portable multicanal",
@@ -388,6 +390,9 @@ def structured_technical_text(text, terms=None):
     if battery:
         return (f'{battery[1]} : toutes les fonctions radio\n'
                 f'{battery[2]} et {battery[3]} également utilisables')
+    receive_only = re.fullmatch(r'([A-Z][A-Z0-9/-]*\s+)?RX only:\s*('+number+r'\s*[-–]\s*'+number+r'\s*(?:MHz|GHz|kHz|Hz))', text.strip())
+    if receive_only:
+        return (receive_only[1] or '') + terms.get('RX only', 'RX uniquement') + ' : ' + receive_only[2]
     security = re.fullmatch(r'([A-Za-z][A-Za-z0-9®™-]*)-based Type-1 Suite A and Suite B encryption \(selections vary by waveform\)', text.strip())
     if security:
         name=security[1]

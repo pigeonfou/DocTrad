@@ -90,8 +90,9 @@ class TransformersEngine(TranslationEngine):
         present = [term for term in sorted(terms, key=len, reverse=True)
                    if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text)]
         if present:
-            pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present))
-            translated = pattern.sub(lambda match: terms[match.group()], translated)
+            pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present), re.IGNORECASE)
+            replacements = {term.casefold(): terms[term] for term in present}
+            translated = pattern.sub(lambda match: replacements[match.group().casefold()], translated)
         from .terminology import correct_network_terms
         translated = correct_network_terms(text, translated)
         # Keep full-sentence inference first. If it loses a protected name,
@@ -166,6 +167,16 @@ class RemoteEngine(TransformersEngine):
         try:
             return self._request_translation(text)
         except InferenceError as first:
+            if first.diagnostic.get("code") == "http_error" and first.diagnostic.get("http_status") in (500, 502, 503, 504):
+                # Translation is read-only: retry one transient server failure with
+                # the identical payload, never authentication or arbitrary failures.
+                import time
+                time.sleep(1)
+                try:
+                    return self._request_translation(text)
+                except InferenceError as last:
+                    last.diagnostic["attempt"] = 2
+                    raise
             if first.diagnostic.get("code") not in (
                     "incomplete_response", "invalid_control_tokens", "empty_response", "foreign_script", "invented_identifier", "prompt_echo"):
                 raise
