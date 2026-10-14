@@ -70,3 +70,12 @@ class DocumentContextTests(unittest.TestCase):
             return 'Un passage'
         with patch.object(engine,'_translate_prose',side_effect=inference):
             self.assertEqual(engine.translate_contextual('A passage',context={'section':'Context'}),'Un passage')
+
+
+def test_prompt_uses_structural_context_without_neighbouring_prose_or_foreign_facts():
+    context={'section':'KEY BENEFITS','row':'Management Tool | OTHER FACT 800 MHz','preceding':'Other equipment supports 800 nodes','following':'Different model','role':'list_item'}
+    prompt=translation_payload('translategemma','Current passage',{'KEY BENEFITS':'AVANTAGES CLÉS'},context)['messages'][0]['content']
+    assert 'AVANTAGES CLÉS' in prompt and 'Management Tool' in prompt
+    for unrelated in ('OTHER FACT','800','Different model','list_item'):
+        assert unrelated not in prompt
+    assert prompt.endswith('Current passage')

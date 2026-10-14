@@ -249,3 +249,22 @@ def test_transient_server_error_has_one_identical_payload_retry():
         import pytest
         with pytest.raises(InferenceError):engine._translate_prose('A complete sentence')
         assert call.call_count==1
+
+
+def test_recovery_payload_drops_context_but_retains_the_source(tmp_path):
+    from unittest.mock import MagicMock
+    key=tmp_path/'key';key.write_text('ephemeral-test-key')
+    engine=RemoteEngine();engine.manifest={'id':'test','revision':'a'*40}
+    engine.settings={'model':'translategemma','key_file':str(key),'base_url':'http://127.0.0.1/v1','auto_load':False}
+    engine.document_context={'section':'UNRELATED_CONTEXT'}
+    response=MagicMock();response.__enter__.return_value=response
+    response.read.return_value=b'{"choices":[{"finish_reason":"stop","message":{"content":"Une phrase."}}]}'
+    opener=MagicMock();opener.open.return_value=response
+    with patch('app.remote_ai.ensure_model'),patch('urllib.request.build_opener',return_value=opener):
+        engine._request_translation('A sentence.')
+        initial=json.loads(opener.open.call_args.args[0].data)
+        engine._request_translation('A sentence.',retry=True)
+        recovery=json.loads(opener.open.call_args.args[0].data)
+    assert 'UNRELATED_CONTEXT' in initial['messages'][0]['content']
+    assert 'UNRELATED_CONTEXT' not in recovery['messages'][0]['content']
+    assert recovery['messages'][0]['content'].endswith('A sentence.')

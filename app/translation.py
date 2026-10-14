@@ -200,7 +200,7 @@ class RemoteEngine(TransformersEngine):
                 return None
         from .remote_ai import translation_payload, ensure_model
         ensure_model(self.settings, unload_images=False)
-        payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None), getattr(self, "document_context", None))
+        payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None), None if retry else getattr(self, "document_context", None))
         if self.settings.get("auto_load"):
             payload["max_tokens"] = min(payload["max_tokens"], self.settings["context_length"] // 2)
         if retry and "translategemma" in self.settings["model"].lower():
