@@ -256,7 +256,7 @@ def test_recovery_payload_drops_context_but_retains_the_source(tmp_path):
     key=tmp_path/'key';key.write_text('ephemeral-test-key')
     engine=RemoteEngine();engine.manifest={'id':'test','revision':'a'*40}
     engine.settings={'model':'translategemma','key_file':str(key),'base_url':'http://127.0.0.1/v1','auto_load':False}
-    engine.document_context={'section':'UNRELATED_CONTEXT'}
+    engine.document_context={'role':'table_cell','section':'UNRELATED_CONTEXT'}
     engine.context_terms={'sentence':'TERMINOLOGY_HINT'}
     response=MagicMock();response.__enter__.return_value=response
     response.read.return_value=b'{"choices":[{"finish_reason":"stop","message":{"content":"Une phrase."}}]}'

@@ -48,7 +48,7 @@ class DocumentContextTests(unittest.TestCase):
 
     def test_prompts_have_context_but_no_fixed_identifier_protection_lists(self):
         for model in ('translategemma','other-model'):
-            prompt=translation_payload(model,'2-meter salt water',context={'row':'Immersion','secret':'ignored'})['messages'][0]['content']
+            prompt=translation_payload(model,'2-meter salt water',context={'role':'table_cell','row':'Immersion','secret':'ignored'})['messages'][0]['content']
             self.assertIn('Immersion',prompt)
             self.assertTrue(prompt.endswith('2-meter salt water'))
             for phrase in ('Preserve these source identifiers','National Security Agency','WREN Security','SOCOM','ignored'):
@@ -73,9 +73,20 @@ class DocumentContextTests(unittest.TestCase):
 
 
 def test_prompt_uses_structural_context_without_neighbouring_prose_or_foreign_facts():
-    context={'section':'KEY BENEFITS','row':'Management Tool | OTHER FACT 800 MHz','preceding':'Other equipment supports 800 nodes','following':'Different model','role':'list_item'}
+    context={'section':'KEY BENEFITS','row':'Management Tool | OTHER FACT 800 MHz','preceding':'Other equipment supports 800 nodes','following':'Different model','role':'table_cell'}
     prompt=translation_payload('translategemma','Current passage',{'KEY BENEFITS':'AVANTAGES CLÉS'},context)['messages'][0]['content']
     assert 'AVANTAGES CLÉS' in prompt and 'Management Tool' in prompt
     for unrelated in ('OTHER FACT','800','Different model','list_item'):
         assert unrelated not in prompt
     assert prompt.endswith('Current passage')
+
+
+def test_prose_keeps_stable_prompt_and_only_short_table_values_get_context():
+    context={'role':'text','section':'UNRELATED_SECTION','row':'UNRELATED_LABEL'}
+    prompt=translation_payload('translategemma','A complete source paragraph',context=context)['messages'][0]['content']
+    assert 'UNRELATED' not in prompt
+    assert 'Preserve every number, range, measurement unit, acronym and product name' in prompt
+    short=translation_payload('translategemma','2 meters',context={'role':'table_cell','row':'Immersion'})['messages'][0]['content']
+    assert 'Immersion' in short
+    long=translation_payload('translategemma','A long complete passage '*10,context={'role':'table_cell','row':'UNRELATED_LABEL'})['messages'][0]['content']
+    assert 'UNRELATED_LABEL' not in long
