@@ -1,5 +1,6 @@
 import time
 import logging
+import traceback
 from datetime import timedelta
 from sqlalchemy import select
 import httpx
@@ -102,7 +103,14 @@ def _run_job(job_id):
             record(job_id, "done", seconds=round(time.monotonic() - start, 2))
             job.status = "done"; job.progress = 100; job.elapsed = int(time.monotonic() - start); s.commit()
     except Exception as exc:
-        record(job_id, "failed", **getattr(exc, "diagnostic", {"code": "processing_error", "exception": type(exc).__name__}))
+        diagnostic = getattr(exc, "diagnostic", None)
+        if diagnostic is None:
+            diagnostic = {"code": "processing_error", "exception": type(exc).__name__}
+            frames = traceback.extract_tb(exc.__traceback__)
+            if frames:
+                frame = frames[-1]
+                diagnostic["origin"] = f"{frame.filename.rsplit('/', 1)[-1]}:{frame.lineno}:{frame.name}"
+        record(job_id, "failed", **diagnostic)
         # No confidential document text or model response in logs.
         log.error("job=%s error=%s", job_id, type(exc).__name__)
         with Session.begin() as s:

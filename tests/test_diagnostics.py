@@ -12,6 +12,10 @@ class DiagnosticsTests(unittest.TestCase):
             exception="invalid message containing document", markers=["<|im_start|>", "secret token"]))
         self.assertEqual(clean, dict(code="invalid_control_tokens", characters=42,
             markers=["<|im_start|>", "unknown"]))
+    def test_origin_is_bounded_and_content_free(self):
+        clean = diagnostics.safe_details({"origin": "opendataloader.py:87:normalize"})
+        self.assertEqual(clean, {"origin": "opendataloader.py:87:normalize"})
+        self.assertEqual(diagnostics.safe_details({"origin": "../secret path"}), {})
     def test_rolling_history_and_job_isolation(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(diagnostics, "DATA", Path(directory)):
             job = str(uuid.uuid4())

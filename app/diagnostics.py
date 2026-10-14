@@ -26,6 +26,9 @@ def safe_details(value):
         item = value.get(key)
         if isinstance(item, str) and re.fullmatch(r"[A-Za-z0-9_]{1,64}", item):
             result[key] = item
+    origin = value.get("origin")
+    if isinstance(origin, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", origin):
+        result["origin"] = origin
     known = {"<|file_separator|>", "<|im_start|>", "<|im_end|>", "<end_of_turn>", "<eos>"}
     if isinstance(value.get("markers"), list):
         result["markers"] = [m if isinstance(m, str) and m in known else "unknown" for m in value["markers"][:20]]
