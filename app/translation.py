@@ -161,6 +161,24 @@ class RemoteEngine(TransformersEngine):
         from .terminology import correct_network_terms
         target = correct_network_terms(text, self._request_translation(text, retry=True))
         if missing_names(text, target, terms):
+            # Recover independent clauses only after full-passage inference
+            # failed twice. Never split at a name or arbitrary character limit.
+            import re
+            clauses = text.split(';')
+            if (2 <= len(clauses) <= 4
+                    and all(len(re.findall(r'[^\W\d_]+', clause)) >= 3
+                            and len(clause.strip()) >= 12 for clause in clauses)):
+                recovered = []
+                for clause in clauses:
+                    candidate = correct_network_terms(
+                        clause, self._request_translation(clause.strip(), retry=True))
+                    if missing_names(clause, candidate, terms):
+                        break
+                    recovered.append(candidate.strip())
+                if len(recovered) == len(clauses):
+                    target = ' ; '.join(recovered)
+            if not missing_names(text, target, terms):
+                return target
             raise InferenceError('missing_identifier', {'characters': len(text), 'attempt': 2})
         return target
 
