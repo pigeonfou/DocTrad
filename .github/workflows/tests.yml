@@ -28,3 +28,97 @@ jobs:
           TEST_DATABASE_URL: postgresql+psycopg://doctrad_test:ephemeral-ci-password@127.0.0.1/doctrad_test
       - run: .venv/bin/pip check
       - run: bash -n install.sh scripts/*.sh
+
+  reference_candidate:
+    needs: tests
+    if: github.repository == 'pigeonfou/DocTrad' && github.event_name == 'push' && github.ref == 'refs/heads/refonte-contexte-mise-en-page'
+    runs-on: [self-hosted, Linux, X64, doctrad-deploy]
+    timeout-minutes: 20
+    concurrency:
+      group: doctrad-server-operations
+      cancel-in-progress: false
+    steps:
+      - name: Resolve validated production revision
+        id: production
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const baseline = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
+            const candidate = await github.rest.repos.getBranch({...context.repo, branch: 'refonte-contexte-mise-en-page'});
+            if (candidate.data.commit.sha !== context.sha) throw new Error('Candidate superseded');
+            core.setOutput('sha', baseline.data.commit.sha);
+      - name: Verify production baseline
+        env:
+          BASELINE_SHA: ${{ steps.production.outputs.sha }}
+        run: |
+          set -euo pipefail
+          active=$(basename "$(readlink -f /opt/oneforall/apps/doctrad/current)")
+          [[ "$active" == "$BASELINE_SHA" ]] || { echo 'Production differs from main; stopping before deployment.'; exit 1; }
+      - name: Deploy tested candidate
+        id: deploy_candidate
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          echo 'attempted=true' >> "$GITHUB_OUTPUT"
+          sudo -n /usr/local/sbin/oneforall-doctrad-deploy "$CANDIDATE_SHA"
+      - name: Translate public L3Harris reference
+        id: reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          helper=/usr/local/sbin/oneforall-doctrad-deploy
+          sudo -n "$helper" --automation-probe
+          sudo -n "$helper" --test-start-l3
+          echo 'started=true' >> "$GITHUB_OUTPUT"
+          for attempt in $(seq 1 90); do
+            sudo -n "$helper" --test-status
+            state=$(python3 -c 'import json; print(json.load(open("/var/lib/oneforall/doctrad-automation/manifest.json"))["status"])')
+            case "$state" in
+              done) exit 0 ;;
+              failed|missing_output) exit 1 ;;
+              queued|running|export_queued|exporting) sleep 10 ;;
+              *) exit 1 ;;
+            esac
+          done
+          echo 'Reference test exceeded its bounded wait.'
+          exit 1
+      - name: Report public reference result
+        if: always() && steps.reference.outputs.started == 'true'
+        run: |
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('/var/lib/oneforall/doctrad-automation')
+          manifest=json.loads((root/'manifest.json').read_text())
+          assert hashlib.sha256((root/'source.pdf').read_bytes()).hexdigest() == 'cc6a5ca2bd9fad41fce19136afd7aaca3315a783a52348a4984bf11d8b8e41f6'
+          report={'manifest':manifest,'deployed_sha':Path('/opt/oneforall/apps/doctrad/current').resolve().name}
+          for name in ('segments.json','diagnostics.json','layout-report.json'):
+              path=root/name
+              if path.exists():report[name]=json.loads(path.read_text())
+          print('DOCTRAD_PUBLIC_REPORT='+json.dumps(report,ensure_ascii=False))
+          PY
+      - name: Retrieve reference evidence
+        if: always() && steps.reference.outputs.started == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctrad-candidate-${{ github.run_id }}
+          path: |
+            /var/lib/oneforall/doctrad-automation/manifest.json
+            /var/lib/oneforall/doctrad-automation/source.pdf
+            /var/lib/oneforall/doctrad-automation/translation.pdf
+            /var/lib/oneforall/doctrad-automation/segments.json
+            /var/lib/oneforall/doctrad-automation/diagnostics.json
+            /var/lib/oneforall/doctrad-automation/layout-report.json
+          retention-days: 3
+          if-no-files-found: error
+      - name: Restore validated production
+        if: always() && steps.deploy_candidate.outputs.attempted == 'true'
+        env:
+          BASELINE_SHA: ${{ steps.production.outputs.sha }}
+        run: |
+          set -euo pipefail
+          helper=/usr/local/sbin/oneforall-doctrad-deploy
+          sudo -n "$helper" "$BASELINE_SHA"
+          active=$(basename "$(readlink -f /opt/oneforall/apps/doctrad/current)")
+          [[ "$active" == "$BASELINE_SHA" ]]
+          sudo -n "$helper" --status
