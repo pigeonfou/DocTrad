@@ -1,11 +1,18 @@
 import unittest
 from pathlib import Path
+import subprocess
 from pypdf import PdfWriter
-from app.opendataloader import normalize, pixel_box, analyze_pdf
+from app.opendataloader import normalize, pixel_box, analyze_pdf, _subprocess_reason
 from app.document_context import translation_context
 
 
 class OpenDataLoaderTests(unittest.TestCase):
+    def test_process_failure_classification_is_content_free(self):
+        error=subprocess.CalledProcessError(1,['java'],stderr='java.lang.OutOfMemoryError: Java heap space')
+        self.assertEqual(_subprocess_reason(error),'OutOfMemoryError')
+        error=subprocess.CalledProcessError(1,['python'],stderr='Traceback: ModuleNotFoundError: package')
+        self.assertEqual(_subprocess_reason(error),'ModuleNotFoundError')
+
     def page(self):
         return PdfWriter().add_blank_page(width=600,height=800)
 

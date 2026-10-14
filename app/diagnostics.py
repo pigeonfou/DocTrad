@@ -18,7 +18,7 @@ class InferenceError(ValueError):
 
 def safe_details(value):
     result = {}
-    for key in ("segment", "characters", "response_characters", "http_status", "seconds", "attempt"):
+    for key in ("segment", "characters", "response_characters", "http_status", "seconds", "attempt", "returncode"):
         item = value.get(key)
         if isinstance(item, (int, float)) and not isinstance(item, bool):
             result[key] = item

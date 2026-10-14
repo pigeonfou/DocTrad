@@ -3,6 +3,8 @@ import json
 import math
 import os
 import ipaddress
+import re
+import shutil
 from urllib.parse import urlsplit
 import subprocess
 import sys
@@ -11,6 +13,20 @@ from pathlib import Path
 from pypdf import PdfReader
 
 VERSION = '2.5.13'
+
+def _processing_error(code, **details):
+    error = ValueError('Analyse OpenDataLoader indisponible : vérifier le paquet local et Java 11+.')
+    error.diagnostic = dict(code=code, **details)
+    return error
+
+def _subprocess_reason(error):
+    payload = '\n'.join(str(value) for value in (getattr(error, 'stdout', ''), getattr(error, 'stderr', '')) if value)
+    for token in ('OutOfMemoryError', 'UnsupportedClassVersionError', 'NoClassDefFoundError',
+                  'PermissionError', 'FileNotFoundError', 'ModuleNotFoundError', 'TypeError'):
+        if token in payload:
+            return token
+    matches = re.findall(r'\b([A-Za-z][A-Za-z0-9_.]*(?:Error|Exception))\b', payload)
+    return matches[-1].rsplit('.', 1)[-1] if matches else 'unknown'
 
 
 def pixel_box(box, page, image_size):
@@ -87,6 +103,8 @@ def analyze_pdf(path):
     path=Path(path).resolve();reader=PdfReader(path)
     if reader.is_encrypted:raise ValueError('PDF chiffré non supporté')
     if len(reader.pages)>500:raise ValueError('PDF limité à 500 pages')
+    if shutil.which('java') is None:
+        raise _processing_error('opendataloader_java_missing')
     with tempfile.TemporaryDirectory(prefix='doctrad-odl-') as directory:
         # Child process bounds Java execution and keeps PDF text out of errors.
         hybrid_url=os.environ.get('DOCTRAD_ODL_HYBRID_URL','')
@@ -99,8 +117,16 @@ def analyze_pdf(path):
                 raise ValueError('Le backend hybride OpenDataLoader doit être local (loopback).')
         program=("import opendataloader_pdf,sys; opendataloader_pdf.convert(sys.argv[1],output_dir=sys.argv[2],"
                  "format='json',quiet=True,keep_line_breaks=True,include_header_footer=True,image_output='off',sanitize=False,**({'hybrid':'docling-fast','hybrid_mode':'full','hybrid_url':sys.argv[3]} if sys.argv[3] else {}))")
-        try:subprocess.run([sys.executable,'-c',program,str(path),directory,hybrid_url],capture_output=True,check=True,timeout=180)
-        except (subprocess.SubprocessError,OSError):raise ValueError('Analyse OpenDataLoader indisponible : vérifier le paquet local et Java 11+.') from None
+        try:
+            subprocess.run([sys.executable,'-c',program,str(path),directory,hybrid_url],
+                           capture_output=True,check=True,timeout=180,text=True)
+        except subprocess.TimeoutExpired:
+            raise _processing_error('opendataloader_timeout') from None
+        except subprocess.CalledProcessError as error:
+            raise _processing_error('opendataloader_process_error', returncode=error.returncode,
+                                    transport_reason=_subprocess_reason(error)) from None
+        except OSError as error:
+            raise _processing_error('opendataloader_os_error', exception=type(error).__name__) from None
         result=Path(directory)/(path.stem+'.json')
         if not result.is_file() or result.stat().st_size>64*1024*1024:raise ValueError('Sortie OpenDataLoader absente ou trop volumineuse')
         document=json.loads(result.read_text())
