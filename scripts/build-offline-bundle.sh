@@ -12,7 +12,7 @@ tar -C "$ROOT" --exclude=.git --exclude=.venv --exclude=models --exclude=data --
 python3 -m pip download --only-binary=:all: -r "$ROOT/requirements.lock" -d "$DEST/wheels"
 cp -a "$MODEL_SOURCE/." "$DEST/models/"
 # Recursive dependencies, including packages already installed on builder.
-apt-rdepends python3-venv postgresql nginx openssl fonts-dejavu-core tesseract-ocr tesseract-ocr-eng poppler-utils curl 2>/dev/null | awk '/^[a-zA-Z0-9][^ ]*$/ {print}' | sort -u > "$DEST/apt/packages.txt"
+apt-rdepends python3-venv postgresql nginx openssl fonts-dejavu-core tesseract-ocr tesseract-ocr-eng poppler-utils curl default-jre-headless 2>/dev/null | awk '/^[a-zA-Z0-9][^ ]*$/ {print}' | sort -u > "$DEST/apt/packages.txt"
 while IFS= read -r package; do
   # Virtual dependencies must be resolved explicitly; stop instead of ignoring.
   (cd "$DEST/apt" && apt-get download "$package")
