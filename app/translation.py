@@ -84,8 +84,20 @@ class TransformersEngine(TranslationEngine):
         # OPUS is trained on sentences and can omit later sentences in a block.
         # Preserve paragraph layout while translating every complete sentence.
         sentences = split_sentences(text.strip())
-        chunks = [chunk for sentence in sentences for chunk in segment(sentence, max_chars=1000)]
-        translated = " ".join(self._translate_prose(chunk) for chunk in chunks)
+        translated_parts = []
+        for sentence in sentences:
+            # Layout analyzers can merge a deterministic technical/legal
+            # sentence with neighboring prose. Keep the exact grammar local
+            # and send only the remaining sentence(s) to inference.
+            fixed = structured_technical_text(sentence, terms)
+            if fixed is not None:
+                translated_parts.append(fixed)
+            else:
+                translated_parts.extend(
+                    self._translate_prose(chunk)
+                    for chunk in segment(sentence, max_chars=1000)
+                )
+        translated = " ".join(translated_parts)
         # A single pass avoids matching inside replacements or shorter names.
         present = [term for term in sorted(terms, key=len, reverse=True)
                    if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text)]

@@ -119,6 +119,7 @@ PROTECTED_NAMES = (
     "When Nothing Else Works",
     "National Security Agency", "WREN Security", "WREN Information Security",
     "SOCOM Tactical Communications", "STC Security",
+    "ITAR", "EAR",
 )
 
 
@@ -231,15 +232,27 @@ def required_names(source, terms=None):
     # Source-derived acronyms cover new documents (PLI, TRL, DSP, ...),
     # without adding any names to inference prompts or assuming all capitals
     # in a prose notice are identifiers.
-    prose_caps = source.isupper() and len(source.split()) >= 4
     common = {'THE','AND','OR','FOR','WITH','ONLY','TO','OF','IN','ON','IS','ARE',
               'NOT','THIS','THAT','ALL','FROM','BY','AS','AT','AN','IT','BE','CAN'}
+    # OCR/layout analyzers may merge an ALL-CAPS legal notice with ordinary
+    # prose. Decide "prose caps" per sentence rather than for the whole block,
+    # otherwise words such as NON or PART become false technical identifiers.
+    spans=[]; start=0
+    for boundary in re.finditer(r'(?<=[.!?])\s+(?=[A-Z])', source):
+        spans.append((start,boundary.start())); start=boundary.end()
+    spans.append((start,len(source)))
+    def in_caps_prose(position):
+        sentence=next((source[a:b] for a,b in spans if a <= position < b), '')
+        letters=[char for char in sentence if char.isalpha()]
+        words=re.findall(r"[A-Za-z]+", sentence)
+        return (len(words) >= 4 and letters
+                and sum(char.isupper() for char in letters) / len(letters) >= .85)
     localized = {word for key,value in {**DEFAULT_TERMS, **terms}.items() if key != value
                  for word in re.findall(r'[A-Z]+', key.upper())}
-    if not prose_caps:
-        for name in re.findall(r'(?<!\w)[A-Z][A-Z0-9]{1,4}(?!\w)', source):
-            if name not in common and name not in localized:
-                names.setdefault(name,terms.get(name,name))
+    for match in re.finditer(r'(?<!\w)[A-Z][A-Z0-9]{1,4}(?!\w)', source):
+        name=match.group()
+        if name not in common and name not in localized and not in_caps_prose(match.start()):
+            names.setdefault(name,terms.get(name,name))
     return names
 
 

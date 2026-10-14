@@ -268,3 +268,32 @@ def test_acronym_checks_are_derived_from_source_for_unseen_documents():
     assert not missing_names('PLI, TRL and DSP improve performance.','PLI, TRL et DSP améliorent les performances.')
     assert required_names('THIS DOCUMENT IS FOR PUBLIC USE ONLY',{}) == {}
     assert not missing_names('DSP processing','traitement numérique',{'DSP':'traitement numérique'})
+
+
+def test_all_caps_sentence_inside_mixed_block_does_not_create_false_identifiers():
+    from app.terminology import required_names
+    source = ('NON-EXPORT CONTROLLED: THIS DOCUMENT CONSISTS OF INFORMATION THAT IS NOT DEFINED AS '
+              'CONTROLLED TECHNICAL DATA UNDER ITAR PART 120.33 OR TECHNOLOGY UNDER EAR PART 772. '
+              'L3Harris develops secure radios.')
+    names = required_names(source, {})
+    assert 'ITAR' in names and 'EAR' in names and 'L3Harris' in names
+    for ordinary in ('NON','PART','THIS','UNDER'):
+        assert ordinary not in names
+
+
+def test_mixed_regulatory_notice_is_translated_deterministically_before_prose():
+    from app.translation import TransformersEngine
+    from app.terminology import terminology
+    legal = ('NON-EXPORT CONTROLLED: THIS DOCUMENT CONSISTS OF INFORMATION THAT IS NOT DEFINED AS '
+             'CONTROLLED TECHNICAL DATA UNDER ITAR PART 120.33 OR TECHNOLOGY UNDER EAR PART 772.')
+    prose = 'L3Harris develops secure radios.'
+    engine = TransformersEngine()
+    seen = []
+    def translate(value):
+        seen.append(value)
+        return 'L3Harris développe des radios sécurisées.'
+    engine._translate_prose = translate
+    target = engine.translate_contextual(legal + ' ' + prose, terminology())
+    assert target.startswith('NON SOUMIS AU CONTRÔLE DES EXPORTATIONS')
+    assert 'ITAR' in target and 'EAR' in target and '120.33' in target and '772' in target
+    assert seen == [prose]
