@@ -190,26 +190,7 @@ def execute(action):
                 job,source=latest(db,completed=True)
                 return snapshot(db,job,source)
             if action=='start':return start(db)
-            if action=='start-l3':
-                result = start(db,'cc6a5ca2bd9fad41fce19136afd7aaca3315a783a52348a4984bf11d8b8e41f6')
-                # Fixed public passage only; never expose arbitrary job content.
-                from .translation import RemoteEngine
-                from .remote_ai import manifest
-                from .terminology import terminology, missing_names
-                from .diagnostics import InferenceError
-                passage = ('Windows®-based Communications Planning Application (CPA); '
-                           'JENM and ATOM compatible WebUI for network monitoring and management')
-                engine = RemoteEngine()
-                try:
-                    engine.load(manifest())
-                    response = engine._request_translation(passage, retry=True)
-                    result['public_passage_probe'] = {'translation': response,
-                        'missing': missing_names(passage, response, terminology())}
-                except InferenceError as error:
-                    result['public_passage_probe'] = error.diagnostic
-                finally:
-                    engine.unload()
-                return result
+            if action=='start-l3':return start(db,'cc6a5ca2bd9fad41fce19136afd7aaca3315a783a52348a4984bf11d8b8e41f6')
             if action=='start-tsm':return start(db,'9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b')
             state=json.loads((root()/'active.json').read_text())
             job=db.get(Job,str(uuid.UUID(state['job_id'])))

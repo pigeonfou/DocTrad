@@ -64,3 +64,26 @@ class ReferenceClauseRecoveryTests(unittest.TestCase):
             with self.assertRaises(InferenceError) as caught:
                 RemoteEngine().recover_names(source, {})
         self.assertIs(caught.exception, failure)
+
+
+def test_web_interface_expansion_retains_source_notation_without_inference_retry():
+    source = 'JENM and ATOM compatible WebUI for network monitoring and management'
+    target = 'Interface Web compatible JENM et ATOM pour la surveillance et la gestion du réseau'
+    with patch.object(RemoteEngine, '_translate_prose', return_value=target), patch.object(RemoteEngine, 'recover_names') as retry:
+        result = RemoteEngine().translate_contextual(source)
+    assert result == 'Interface Web (WebUI) compatible JENM et ATOM pour la surveillance et la gestion du réseau'
+    retry.assert_not_called()
+
+
+def test_web_interface_restoration_requires_unique_source_and_target_anchors():
+    from app.terminology import correct_network_terms, missing_names
+    for source, target in [
+        ('Network management', 'Interface Web pour la gestion'),
+        ('WebUI for management', 'Gestion réseau'),
+        ('WebUI for management', 'Interface Web et interface utilisateur Web'),
+        ('WebUI and WebUI', 'Interface Web'),
+        ('WebUI for management', 'Interface Web (WebUI) pour la gestion'),
+    ]:
+        assert correct_network_terms(source, target) == target
+    result = correct_network_terms('WebUI for management', 'Interface utilisateur web pour la gestion')
+    assert not missing_names('WebUI for management', result)

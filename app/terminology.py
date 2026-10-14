@@ -249,6 +249,17 @@ def missing_names(source,target,terms=None):
 def correct_network_terms(source, target):
     """Correct observed ambiguous translations only in their source context."""
     import re
+    # A model may translate a conventional interface acronym into its
+    # meaning. Restore the source notation only at one unambiguous phrase;
+    # never append missing names to an arbitrary end of the passage.
+    for name, phrase in {
+        'WebUI': r'\binterface\s+(?:utilisateur\s+)?web\b',
+    }.items():
+        if name in missing_names(source, target):
+            anchors = list(re.finditer(phrase, target, re.I))
+            if len(anchors) == 1 and len(re.findall(r'(?<!\w)' + re.escape(name) + r'(?!\w)', source)) == 1:
+                anchor = anchors[0]
+                target = target[:anchor.end()] + ' (' + name + ')' + target[anchor.end():]
     if re.search(r'\bmultichannel\b',source,re.I):
         target=re.sub(r'\bmultifréquences\b','multicanal',target,flags=re.I)
         if not re.search(r'["“”«»]',source):
