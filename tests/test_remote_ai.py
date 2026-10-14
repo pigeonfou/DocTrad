@@ -244,7 +244,7 @@ def test_transient_server_error_has_bounded_identical_payload_retries():
     with patch.object(engine,'_request_translation',side_effect=InferenceError('http_error',{'http_status':503})) as call, patch('time.sleep'):
         import pytest
         with pytest.raises(InferenceError) as failed:engine._translate_prose('A complete sentence')
-        assert call.call_count==3 and failed.value.diagnostic['attempt']==3
+        assert call.call_count==4 and failed.value.diagnostic['attempt']==4
     with patch.object(engine,'_request_translation',side_effect=InferenceError('http_error',{'http_status':401})) as call:
         import pytest
         with pytest.raises(InferenceError):engine._translate_prose('A complete sentence')
@@ -308,7 +308,7 @@ def test_interrupted_inference_connection_has_bounded_retries():
     with patch.object(engine,'_request_translation',side_effect=InferenceError('remote_error',{'exception':'URLError'})) as call,patch('time.sleep'):
         import pytest
         with pytest.raises(InferenceError) as error:engine._translate_prose('Source sentence')
-        assert call.call_count==3 and error.value.diagnostic['attempt']==3
+        assert call.call_count==4 and error.value.diagnostic['attempt']==4
 
 
 def test_transient_outage_recovers_on_third_identical_request():
@@ -319,7 +319,7 @@ def test_transient_outage_recovers_on_third_identical_request():
         assert engine._translate_prose('Complete source') == 'Texte complet'
     assert [call.args for call in request.call_args_list] == [('Complete source',)] * 3
     assert [call.kwargs for call in request.call_args_list] == [{}] * 3
-    assert [call.args for call in pause.call_args_list] == [(1,), (3,)]
+    assert [call.args for call in pause.call_args_list] == [(2,), (8,)]
 
 
 def test_authentication_and_semantic_errors_do_not_get_transport_retries():
@@ -349,5 +349,16 @@ def test_context_deadline_stops_retry_without_sleep():
     engine.inference_deadline = 100
     with patch('time.monotonic', return_value=100), patch('time.sleep') as pause, patch.object(engine, '_request_translation', side_effect=InferenceError('http_error', {'http_status':503})) as request:
         with pytest.raises(InferenceError): engine._translate_prose('Source')
+    assert request.call_count == 1
+    pause.assert_not_called()
+
+
+def test_certificate_failures_are_not_retried_or_exposed():
+    import pytest
+    from app.diagnostics import InferenceError
+    failure = InferenceError('remote_error', {'exception':'URLError', 'transport_reason':'SSLCertVerificationError', 'reason':'private endpoint'})
+    assert 'reason' not in failure.diagnostic
+    with patch.object(RemoteEngine, '_request_translation', side_effect=failure) as request, patch('time.sleep') as pause:
+        with pytest.raises(InferenceError): RemoteEngine()._translate_prose('Source')
     assert request.call_count == 1
     pause.assert_not_called()

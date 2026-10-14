@@ -22,7 +22,7 @@ def safe_details(value):
         item = value.get(key)
         if isinstance(item, (int, float)) and not isinstance(item, bool):
             result[key] = item
-    for key in ("code", "exception", "finish_reason"):
+    for key in ("code", "exception", "finish_reason", "transport_reason"):
         item = value.get(key)
         if isinstance(item, str) and re.fullmatch(r"[A-Za-z0-9_]{1,64}", item):
             result[key] = item

@@ -188,19 +188,22 @@ class RemoteEngine(TransformersEngine):
     def _request_with_transport_retry(self, text, **kwargs):
         from .diagnostics import InferenceError
         import time
-        for attempt in range(1, 4):
+        for attempt in range(1, 5):
             try:
                 return self._request_translation(text, **kwargs)
             except InferenceError as error:
                 detail = error.diagnostic
                 status = detail.get('http_status')
+                if detail.get('transport_reason') in ('SSLCertVerificationError', 'CertificateError'):
+                    detail['attempt'] = attempt
+                    raise
                 transient = (status in (500, 502, 503, 504) or
                              (status is None and detail.get('code') == 'remote_error'
                               and detail.get('exception') in ('URLError', 'ConnectionResetError')))
-                if not transient or attempt == 3:
+                if not transient or attempt == 4:
                     detail['attempt'] = attempt
                     raise
-                delay = (1, 3)[attempt - 1]
+                delay = (2, 8, 20)[attempt - 1]
                 deadline = getattr(self, 'inference_deadline', None)
                 if deadline is not None and time.monotonic() + delay >= deadline:
                     detail['attempt'] = attempt
@@ -295,6 +298,8 @@ class RemoteEngine(TransformersEngine):
             # Never expose a key, source text or server response through error messages.
             from .diagnostics import InferenceError
             diagnostic["exception"] = type(exc).__name__
+            if isinstance(exc, urllib.error.URLError):
+                diagnostic["transport_reason"] = type(exc.reason).__name__
             if hasattr(exc, "code"):
                 diagnostic["http_status"] = exc.code
                 code = "http_error"
