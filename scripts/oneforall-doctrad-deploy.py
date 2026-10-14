@@ -45,7 +45,19 @@ def candidate_command(argument):
     return ['/usr/bin/python3','-I','-c',source,'update','--apps','doctrad','--sha',argument]
 
 
+def ensure_java():
+    if shutil.which('java', path=ENV['PATH']):
+        return
+    sys.path.insert(0,str(MANAGER))
+    from deploy import packages
+    packages('default-jre-headless')
+    if not shutil.which('java', path=ENV['PATH']):
+        raise ValueError('Java reste indisponible après provisioning OneForAll.')
+
+
 def automation(argument):
+    if AUTOMATION[argument] in ('start','start-l3','start-tsm'):
+        ensure_java()
     sys.path.insert(0,str(MANAGER))
     from common import app_env,user
     values=app_env('doctrad')

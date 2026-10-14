@@ -110,3 +110,11 @@ def test_candidate_command_has_fixed_ref_and_rejects_diagnostic_input():
     assert "APPS['doctrad']['ref']='refonte-contexte-mise-en-page'" in invocation[3]
     for argument in ('--status','--config','main','b'*40+';id'):
         with pytest.raises(ValueError):helper.candidate_command(argument)
+
+
+def test_missing_java_is_provisioned_through_fixed_oneforall_package_api():
+    package_calls=[]
+    fake_deploy=SimpleNamespace(packages=lambda *names: package_calls.append(names))
+    with patch.object(helper.shutil,'which',side_effect=[None,'/usr/bin/java']),patch.dict(sys.modules,{'deploy':fake_deploy}):
+        helper.ensure_java()
+    assert package_calls==[('default-jre-headless',)]
