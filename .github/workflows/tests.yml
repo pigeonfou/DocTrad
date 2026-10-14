@@ -47,15 +47,37 @@ jobs:
             const candidate = await github.rest.repos.getBranch({...context.repo, branch: 'refonte-contexte-mise-en-page'});
             if (candidate.data.commit.sha !== context.sha) throw new Error('Candidate superseded');
             core.setOutput('sha', baseline.data.commit.sha);
-      - name: Verify production baseline
+      - name: Read active revision
         id: baseline
-        env:
-          BASELINE_SHA: ${{ steps.production.outputs.sha }}
         run: |
           set -euo pipefail
           active=$(basename "$(readlink -f /opt/oneforall/apps/doctrad/current)")
-          [[ "$active" == "$BASELINE_SHA" || "$active" == "9c4891350360fbc71d07f73e54fe4cdda7099604" ]] || { echo 'Active revision is neither main nor the previous validated candidate; stopping.'; exit 1; }
+          [[ "$active" =~ ^[a-f0-9]{40}$ ]]
           echo "sha=$active" >> "$GITHUB_OUTPUT"
+      - name: Verify previously tested active revision
+        uses: actions/github-script@v7
+        env:
+          ACTIVE_SHA: ${{ steps.baseline.outputs.sha }}
+          MAIN_SHA: ${{ steps.production.outputs.sha }}
+        with:
+          script: |
+            const active = process.env.ACTIVE_SHA;
+            if (active === process.env.MAIN_SHA) return;
+            const comparison = await github.rest.repos.compareCommitsWithBasehead({
+              ...context.repo, basehead: `${active}...${context.sha}`});
+            if (!['ahead','identical'].includes(comparison.data.status)) {
+              throw new Error('Active revision is outside candidate ancestry');
+            }
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+              ...context.repo, branch: 'refonte-contexte-mise-en-page',
+              head_sha: active, event: 'push', per_page: 20});
+            for (const run of runs.data.workflow_runs) {
+              if (run.head_sha !== active || run.name !== 'DocTrad checks') continue;
+              const jobs = await github.rest.actions.listJobsForWorkflowRun({
+                ...context.repo, run_id: run.id, per_page: 100});
+              if (jobs.data.jobs.some(job => job.name === 'tests' && job.conclusion === 'success')) return;
+            }
+            throw new Error('Active candidate has no successful checks');
       - name: Deploy tested candidate
         id: deploy_candidate
         env:
@@ -116,7 +138,7 @@ jobs:
       - name: Restore validated production
         if: always() && steps.deploy_candidate.outputs.attempted == 'true'
         env:
-          BASELINE_SHA: ${{ steps.baseline.outputs.sha }}
+          BASELINE_SHA: ${{ steps.production.outputs.sha }}
         run: |
           set -euo pipefail
           helper=/usr/local/sbin/oneforall-doctrad-deploy
