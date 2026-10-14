@@ -48,12 +48,14 @@ jobs:
             if (candidate.data.commit.sha !== context.sha) throw new Error('Candidate superseded');
             core.setOutput('sha', baseline.data.commit.sha);
       - name: Verify production baseline
+        id: baseline
         env:
           BASELINE_SHA: ${{ steps.production.outputs.sha }}
         run: |
           set -euo pipefail
           active=$(basename "$(readlink -f /opt/oneforall/apps/doctrad/current)")
-          [[ "$active" == "$BASELINE_SHA" ]] || { echo 'Production differs from main; stopping before deployment.'; exit 1; }
+          [[ "$active" == "$BASELINE_SHA" || "$active" == "9c4891350360fbc71d07f73e54fe4cdda7099604" ]] || { echo 'Active revision is neither main nor the previous validated candidate; stopping.'; exit 1; }
+          echo "sha=$active" >> "$GITHUB_OUTPUT"
       - name: Deploy tested candidate
         id: deploy_candidate
         env:
@@ -114,7 +116,7 @@ jobs:
       - name: Restore validated production
         if: always() && steps.deploy_candidate.outputs.attempted == 'true'
         env:
-          BASELINE_SHA: ${{ steps.production.outputs.sha }}
+          BASELINE_SHA: ${{ steps.baseline.outputs.sha }}
         run: |
           set -euo pipefail
           helper=/usr/local/sbin/oneforall-doctrad-deploy

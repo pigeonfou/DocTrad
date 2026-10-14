@@ -26,6 +26,7 @@ DEFAULT_TERMS = {
     "Frequency Tuning": "Réglage de fréquence",
     "Software Environment": "Environnement logiciel",
     "Remote Control": "Télécommande",
+    "Remote Keypad Display Unit": "clavier-afficheur distant",
     "Volume": "Volume",
     "Weight": "Poids",
     "Shock and Vibration": "Chocs et vibrations",
@@ -138,6 +139,9 @@ def reference_label(text, terms):
     """Product/reference lists contain nothing that needs prose inference."""
     import re
     if re.fullmatch(r'\s*[<>≤≥]?\s*[+-]?\d+(?:[.,]\d+)?\s*(?:dBm|dBc|kHz|MHz|GHz|Hz|VDC|VAC|mW|W|ppm)\s*',text):return True
+    # One or more bare frequency ranges need no linguistic translation.
+    frequency = r'[+-]?\d+(?:[.,]\d+)?\s*[-–]\s*[+-]?\d+(?:[.,]\d+)?\s*(?:GHz|MHz|kHz|Hz)'
+    if re.fullmatch(r'\s*(?:' + frequency + r'\s*)+', text): return True
     if re.fullmatch(r'\s*[A-Z]{2,10}\s+v?\d+(?:\.\d+){1,3}\s*',text):return True
     if re.fullmatch(r'©\s+\d{4}\s+[^|\n]+\|\s*\d{2}/\d{4}\s*\|\s*[A-Z0-9-]+', text.strip()):
         return True
@@ -269,7 +273,16 @@ def correct_network_terms(source, target, terms=None):
     for version in re.findall(r'\bwith\s+(\d+(?:\.\d+)+)\s+in development\b',source,re.I):
         target=re.sub(r'\bLes versions\s+'+re.escape(version)+r'\s+sont en développement\b',
                       'La version '+version+' est en développement',target,flags=re.I)
-    if re.search(r'\bcrossbanding\b',source,re.I):
+    for version in re.findall(r'\bwith\s+(\d+(?:\.\d+)+)\s+in development\b',source,re.I):
+        if not re.search(r'\bsystem\b',source,re.I):
+            target=re.sub(r'\b(?:le|un) système\s+'+re.escape(version)+r'\b',
+                          lambda match: ('La' if match[0][0].isupper() else 'la')+' version '+version,target,flags=re.I)
+    if re.search(r'\bcrossbanding\b',source,re.I) and not re.search(r'\b(?:routing|router)\b',source,re.I):
+        target=re.sub(r'\bun (?:système de )?routage avancé\b',
+                      'une interconnexion interbande avancée',target,flags=re.I)
+        target=re.sub(r'\b(?:système de )?routage(?=\s+avancé|\s+et|[,.])',
+                      'interconnexion interbande',target,flags=re.I)
+
         target=re.sub(r'\bla bande croisée\b','l’interconnexion interbande',target,flags=re.I)
         target=re.sub(r'\b(?:le|la) interconnexion interbande\b', 'l’interconnexion interbande', target, flags=re.I)
         target=re.sub(r'\bde interconnexion interbande\b', 'd’interconnexion interbande', target, flags=re.I)
@@ -397,6 +410,10 @@ def structured_technical_text(text, terms=None):
     """Translate only fully recognized measurement and security-label grammar."""
     import re
     terms = terms or {}
+    keypad = re.fullmatch(r'(?:(HW)\s*:\s*)?Remote Keypad Display Unit\s*\(([A-Z0-9]{2,10})\)', text.strip())
+    if keypad:
+        phrase = terms.get('Remote Keypad Display Unit', DEFAULT_TERMS['Remote Keypad Display Unit'])
+        return ('HW : ' if keypad[1] else '') + phrase + ' (' + keypad[2] + ')'
     qualifier = r'\((?:with|without) battery\)'
     number = r'\d+(?:[.,]\d+)?'
     dimension = number+r'\s*H\s*[x×]\s*'+number+r'\s*W\s*[x×]\s*'+number+r'\s*D\s*(?:in|cm|mm)\s*'+qualifier
