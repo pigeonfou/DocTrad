@@ -28,10 +28,10 @@ if [[ ${1:-} == --offline ]]; then
   trap 'rm -f "$LOCAL_LIST"' EXIT
   printf 'deb [trusted=yes] file:%s/apt ./\n' "$BUNDLE" > "$LOCAL_LIST"
   apt-get -o Dir::Etc::sourcelist="$LOCAL_LIST" -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 update
-  apt-get -o Dir::Etc::sourcelist="$LOCAL_LIST" -o Dir::Etc::sourceparts=- install -y python3-venv postgresql nginx openssl fonts-dejavu-core tesseract-ocr tesseract-ocr-eng poppler-utils curl
+  apt-get -o Dir::Etc::sourcelist="$LOCAL_LIST" -o Dir::Etc::sourceparts=- install -y python3-venv postgresql nginx openssl fonts-dejavu-core tesseract-ocr tesseract-ocr-eng poppler-utils curl default-jre-headless
 else
   apt-get update
-  apt-get install -y python3-venv postgresql nginx openssl fonts-dejavu-core tesseract-ocr tesseract-ocr-eng poppler-utils curl
+  apt-get install -y python3-venv postgresql nginx openssl fonts-dejavu-core tesseract-ocr tesseract-ocr-eng poppler-utils curl default-jre-headless
 fi
 id docutranslate &>/dev/null || useradd --system --home /var/lib/docutranslate --shell /usr/sbin/nologin docutranslate
 install -d -m 750 -o root -g docutranslate /opt/docutranslate /opt/docutranslate/models /etc/docutranslate

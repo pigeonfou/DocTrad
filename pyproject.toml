@@ -6,7 +6,7 @@ name = "doctrad"
 version = "0.1.0"
 description = "Local technical document translation server"
 requires-python = ">=3.12"
-dependencies = ["fastapi", "uvicorn", "sqlalchemy", "psycopg[binary]", "python-multipart", "itsdangerous", "argon2-cffi", "httpx", "python-docx", "python-pptx", "pypdf", "reportlab", "Pillow", "jinja2"]
+dependencies = ["fastapi", "uvicorn", "sqlalchemy", "psycopg[binary]", "python-multipart", "itsdangerous", "argon2-cffi", "httpx", "python-docx", "python-pptx", "pypdf", "reportlab", "Pillow", "jinja2", "opendataloader-pdf==2.5.13"]
 [project.optional-dependencies]
 translation = ["torch", "transformers", "sentencepiece", "sacremoses", "safetensors", "huggingface-hub"]
 test = ["pytest", "PyMuPDF==1.26.6"]

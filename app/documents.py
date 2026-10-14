@@ -124,6 +124,12 @@ def analyze(path, suffix):
         reader = PdfReader(path)
         if reader.is_encrypted: raise ValueError("PDF chiffré non supporté")
         if len(reader.pages) > 500: raise ValueError("PDF limité à 500 pages")
+        import os
+        backend=os.environ.get('DOCTRAD_PDF_BACKEND','opendataloader')
+        if backend=='opendataloader':
+            from .opendataloader import analyze_pdf
+            return analyze_pdf(path)
+        if backend!='legacy':raise ValueError('Analyseur PDF inconnu')
         # Both native and scanned PDFs need page coordinates for visual export.
         from .ocr import scan_pdf, paragraphs
         return paragraphs(scan_pdf(path))

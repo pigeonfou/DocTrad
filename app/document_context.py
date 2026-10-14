@@ -4,6 +4,8 @@ import re
 
 def translation_context(items, index):
     current = items[index]
+    if current.get("document_context"):
+        return dict(current["document_context"])
     box = current.get('box')
     page = current.get('page')
     peers = [(i, item) for i, item in enumerate(items)
