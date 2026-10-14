@@ -1,13 +1,13 @@
 name: DocTrad reference automation
 on:
   push:
-    branches: [main]
+    branches: [main, refonte-contexte-mise-en-page]
     paths: ['.github/doctrad-automation.json']
   workflow_dispatch:
     inputs:
       operation:
         type: choice
-        options: [probe, latest, run, status]
+        options: [probe, latest, run, run-l3, run-tsm, status]
         default: probe
         description: Public reference operation
 permissions:
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   reference:
-    if: github.repository == 'pigeonfou/DocTrad' && github.ref == 'refs/heads/main'
+    if: github.repository == 'pigeonfou/DocTrad' && contains(fromJSON('["refs/heads/main","refs/heads/refonte-contexte-mise-en-page"]'), github.ref)
     runs-on: [self-hosted, Linux, X64, doctrad-deploy]
     timeout-minutes: 30
     steps:
@@ -33,7 +33,7 @@ jobs:
               });
               operation = JSON.parse(Buffer.from(file.data.content, 'base64').toString()).operation;
             }
-            if (!['probe', 'latest', 'run', 'status'].includes(operation)) {
+            if (!['probe', 'latest', 'run', 'run-l3', 'run-tsm', 'status'].includes(operation)) {
               throw new Error('Unsupported reference operation');
             }
             core.setOutput('operation', operation);
@@ -54,8 +54,14 @@ jobs:
               python3 -c 'import json; assert json.load(open("/var/lib/oneforall/doctrad-automation/manifest.json"))["status"] == "done"'
               ;;
             status) sudo -n "$helper" --test-status ;;
-            run)
-              sudo -n "$helper" --test-start
+            run|run-l3|run-tsm)
+              if [[ "$OPERATION" == run-tsm ]]; then
+                sudo -n "$helper" --test-start-tsm
+              elif [[ "$OPERATION" == run-l3 ]]; then
+                sudo -n "$helper" --test-start-l3
+              else
+                sudo -n "$helper" --test-start
+              fi
               for attempt in $(seq 1 150); do
                 sudo -n "$helper" --test-status
                 state=$(python3 -c 'import json; print(json.load(open("/var/lib/oneforall/doctrad-automation/manifest.json"))["status"])')

@@ -126,3 +126,36 @@ def test_active_release_takes_priority_over_a_reused_venv(monkeypatch,tmp_path):
     monkeypatch.setattr(automation,'CURRENT_RELEASE',current)
     monkeypatch.setattr(automation,'__file__','/opt/oneforall/apps/doctrad/releases/'+('a'*40)+'/.venv/lib/python3/site-packages/app/automation.py')
     assert automation.release_revision()=='b'*40
+
+
+def test_tsm_start_imports_only_hash_recognized_public_fixture(reference,monkeypatch,tmp_path):
+    root,_,_=reference
+    digest='9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b'
+    fixture=Path(__file__).parent/'fixtures/tsm-waveform-reference.pdf'
+    release=tmp_path/'release';(release/'tests/fixtures').mkdir(parents=True)
+    (release/'tests/fixtures/tsm-waveform-reference.pdf').write_bytes(fixture.read_bytes())
+    monkeypatch.setattr(automation,'CURRENT_RELEASE',release)
+    monkeypatch.setitem(automation.REFERENCES,digest,'TrellisWare TSM waveform')
+    monkeypatch.setattr('app.registry.Registry.choose',lambda self,requested:{'id':'test-model','revision':'b'*40})
+    first=automation.execute('start-tsm')
+    assert first['source_sha256']==digest
+    assert automation.execute('start-tsm')['job_id']==first['job_id']
+
+
+def test_tsm_start_rejects_altered_fixture_before_creating_a_job(reference,monkeypatch,tmp_path):
+    release=tmp_path/'release';(release/'tests/fixtures').mkdir(parents=True)
+    (release/'tests/fixtures/tsm-waveform-reference.pdf').write_bytes(b'private document')
+    monkeypatch.setattr(automation,'CURRENT_RELEASE',release)
+    with pytest.raises(ValueError,match='altérée'):automation.execute('start-tsm')
+    with Session() as db:assert db.scalar(select(User).where(User.username==automation.QA_USER)) is None
+
+
+def test_explicit_reference_does_not_reuse_an_active_job_for_another_document(reference,monkeypatch,tmp_path):
+    digest='9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b'
+    release=tmp_path/'release';(release/'tests/fixtures').mkdir(parents=True)
+    (release/'tests/fixtures/tsm-waveform-reference.pdf').write_bytes((Path(__file__).parent/'fixtures/tsm-waveform-reference.pdf').read_bytes())
+    monkeypatch.setattr(automation,'CURRENT_RELEASE',release)
+    monkeypatch.setitem(automation.REFERENCES,digest,'TrellisWare TSM waveform')
+    monkeypatch.setattr('app.registry.Registry.choose',lambda self,requested:{'id':'test-model','revision':'b'*40})
+    automation.execute('start')
+    with pytest.raises(ValueError,match='autre référence'):automation.execute('start-tsm')

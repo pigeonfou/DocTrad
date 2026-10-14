@@ -405,7 +405,7 @@ def export_pdf(original, targets, segments, destination):
                         size = source_sizes.get(index, estimated_source_size(segment, sx, sy, font))
                         # French prose can need an extra line. Use blank space
                         # below the source block before reducing the whole font.
-                        bottom = min(image.height-clearance, y1+round(size*1.18/sy))
+                        bottom = min(image.height-clearance, y1+round(3*size*1.18/sy))
                         if cell: bottom = min(bottom,cell[3]-5)
                         corridor_right = min(image.width,round(x0+available_width/sx))
                         for neighbour in segments:

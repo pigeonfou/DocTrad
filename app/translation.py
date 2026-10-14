@@ -51,7 +51,7 @@ class TransformersEngine(TranslationEngine):
             output.append(leading + self._translate_prose(part.strip()).strip() + trailing)
         return "".join(output)
 
-    def translate_contextual(self, text, glossary=None):
+    def translate_contextual(self, text, glossary=None, context=None):
         """Translate complete source sentences, including their technical context.
 
         Exact glossary entries bypass inference. Inline replacements apply only
@@ -90,8 +90,9 @@ class TransformersEngine(TranslationEngine):
         present = [term for term in sorted(terms, key=len, reverse=True)
                    if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text)]
         if present:
-            pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present))
-            translated = pattern.sub(lambda match: terms[match.group()], translated)
+            pattern = re.compile("|".join(r"(?<!\w)" + re.escape(term) + r"(?!\w)" for term in present), re.IGNORECASE)
+            replacements = {term.casefold(): terms[term] for term in present}
+            translated = pattern.sub(lambda match: replacements[match.group().casefold()], translated)
         from .terminology import correct_network_terms
         translated = correct_network_terms(text, translated)
         # Keep full-sentence inference first. If it loses a protected name,
@@ -129,12 +130,14 @@ class TransformersEngine(TranslationEngine):
 
 class RemoteEngine(TransformersEngine):
     """Reuse terminology protection, with inference on an explicitly configured LAN host."""
-    def translate_contextual(self, text, glossary=None):
+    def translate_contextual(self, text, glossary=None, context=None):
         self.context_terms = glossary or {}
+        self.document_context = context or {}
         try:
             return super().translate_contextual(text, glossary)
         finally:
             self.context_terms = {}
+            self.document_context = {}
 
     def load(self, manifest):
         from .remote_ai import settings, manifest as configured_manifest
@@ -142,6 +145,8 @@ class RemoteEngine(TransformersEngine):
         current = configured_manifest()
         if not current or current["revision"] != manifest["revision"]:
             raise ValueError("Configuration IA distante modifiée")
+        from .remote_ai import ensure_model
+        ensure_model(self.settings, unload_images=False)
         self.manifest = manifest
     def unload(self):
         self.manifest = None
@@ -164,14 +169,22 @@ class RemoteEngine(TransformersEngine):
         try:
             return self._request_translation(text)
         except InferenceError as first:
+            if first.diagnostic.get("code") == "http_error" and first.diagnostic.get("http_status") in (500, 502, 503, 504):
+                # Translation is read-only: retry one transient server failure with
+                # the identical payload, never authentication or arbitrary failures.
+                import time
+                time.sleep(1)
+                try:
+                    return self._request_translation(text)
+                except InferenceError as last:
+                    last.diagnostic["attempt"] = 2
+                    raise
             if first.diagnostic.get("code") not in (
                     "incomplete_response", "invalid_control_tokens", "empty_response", "foreign_script", "invented_identifier", "prompt_echo"):
                 raise
             # One recovery round only; no recursion or partial-answer export.
-            from .quality import segment
-            chunks = segment(text, max_chars=250)
             try:
-                return " ".join(self._request_translation(chunk, retry=True) for chunk in chunks)
+                return self._request_translation(text, retry=True)
             except InferenceError as last:
                 last.diagnostic["attempt"] = 2
                 raise
@@ -185,19 +198,15 @@ class RemoteEngine(TransformersEngine):
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):
                 return None
-        from .remote_ai import translation_payload, ensure_model
-        ensure_model(self.settings, unload_images=False)
-        payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None))
+        from .remote_ai import translation_payload
+        payload = translation_payload(self.settings["model"], text, None if retry else getattr(self, "context_terms", None), None if retry else getattr(self, "document_context", None))
         if self.settings.get("auto_load"):
             payload["max_tokens"] = min(payload["max_tokens"], self.settings["context_length"] // 2)
         if retry and "translategemma" in self.settings["model"].lower():
-            payload["repetition_penalty"] = 1.1
+            payload["repetition_penalty"] = 1.0
             payload["max_tokens"] = 512
-            from .terminology import required_names
-            recovery_names = list(required_names(text, getattr(self, "context_terms", None)).values())
             payload["messages"][0]["content"] = (
-                "Preserve these source identifiers exactly: " + json.dumps(recovery_names, ensure_ascii=False)
-                + ". Return one complete French translation only. Never omit or add identifiers.\n"
+                "Translate the complete source faithfully; return only its translation.\n"
                 + payload["messages"][0]["content"])
 
         key = Path(self.settings["key_file"]).read_text().strip()
@@ -258,7 +267,8 @@ class RemoteEngine(TransformersEngine):
 class Runtime:
     """A single process owns weights; all switches and inference are serialized."""
     def __init__(self): self.engine = TransformersEngine(); self.lock = RLock()
-    def translate(self, manifest, texts, *, contextual=False, glossary=None):
+    def translate(self, manifest, texts, *, contextual=False, glossary=None, contexts=None):
+        if contexts and len(contexts) != len(texts): raise ValueError("Contextes incohérents")
         with self.lock:
             old = self.engine.manifest
             if not old or (old["id"], old["revision"]) != (manifest["id"], manifest["revision"]):
@@ -275,6 +285,9 @@ class Runtime:
                     if old: self.engine.load(old)
                     raise
             if contextual:
+                if isinstance(self.engine, RemoteEngine):
+                    return [self.engine.translate_contextual(text, glossary, context=contexts[i] if contexts else None)
+                            for i, text in enumerate(texts)]
                 return [self.engine.translate_contextual(text, glossary) for text in texts]
             return self.engine.translate_batch(texts)
 

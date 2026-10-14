@@ -17,7 +17,7 @@ DEPLOY_REFS = ('refs/heads/main', 'refs/heads/refonte-contexte-mise-en-page')
 PUBLIC_HASHES = {'cc6a5ca2bd9fad41fce19136afd7aaca3315a783a52348a4984bf11d8b8e41f6',
                 '9bc58a21ffa56f89dcec9e201f17d77b606135462a9c23b8e23fc274467b9e4b'}
 AUTOMATION = {'--automation-probe':'probe','--test-latest':'latest',
-              '--test-start':'start','--test-status':'status'}
+              '--test-start':'start','--test-start-l3':'start-l3','--test-start-tsm':'start-tsm','--test-status':'status'}
 ENV = {'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','HOME':'/root','LANG':'C.UTF-8',
        'PYTHONNOUSERSITE':'1'}
 

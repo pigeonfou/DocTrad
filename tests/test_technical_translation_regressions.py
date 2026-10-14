@@ -237,3 +237,34 @@ def test_precise_technical_cells_bypass_remote_inference_but_honor_exact_glossar
         assert engine.translate_contextual(source, terminology()) == '2 m en eau salée (MIL-STD-810G)'
         assert 'toutes les fonctions radio' in engine.translate_contextual(battery, terminology())
         assert engine.translate_contextual(source, {source: 'Libellé utilisateur'}) == 'Libellé utilisateur'
+
+
+def test_source_glossary_repairs_case_variants_but_honors_user_choice():
+    from app.translation import RemoteEngine
+    from app.terminology import terminology
+    engine=RemoteEngine()
+    with patch.object(engine,'_translate_prose',return_value='Ce MANPACK fonctionne.'):
+        assert engine.translate_contextual('This manpack works.',terminology())=='Ce radio portable fonctionne.'
+        assert engine.translate_contextual('This manpack works.',terminology({'manpack':'équipement portable'}))=='Ce équipement portable fonctionne.'
+    with patch.object(engine,'_translate_prose',return_value='Un MANPACK fonctionne.'):
+        assert engine.translate_contextual('Unrelated equipment works.',terminology())=='Un MANPACK fonctionne.'
+
+
+def test_receive_only_cell_keeps_acronyms_and_every_frequency():
+    from app.terminology import structured_technical_text
+    from app.quality import check
+    source='SBTW/SA RX only: 30-2600 MHz'
+    target=structured_technical_text(source)
+    assert target=='SBTW/SA RX uniquement : 30-2600 MHz'
+    assert not check(source,target)
+    assert structured_technical_text('RX only: 100–200 MHz')=='RX uniquement : 100–200 MHz'
+    assert structured_technical_text(source+' under specified conditions') is None
+    assert 'réception seule (RX)' in structured_technical_text(source, {'RX only':'réception seule (RX)'})
+
+
+def test_acronym_checks_are_derived_from_source_for_unseen_documents():
+    from app.terminology import missing_names,required_names
+    assert set(missing_names('PLI, TRL and DSP improve performance.','Des informations de position et une maturité technologique élevée améliorent les performances.')) == {'PLI','TRL','DSP'}
+    assert not missing_names('PLI, TRL and DSP improve performance.','PLI, TRL et DSP améliorent les performances.')
+    assert required_names('THIS DOCUMENT IS FOR PUBLIC USE ONLY',{}) == {}
+    assert not missing_names('DSP processing','traitement numérique',{'DSP':'traitement numérique'})

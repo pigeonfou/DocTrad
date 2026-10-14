@@ -4,6 +4,9 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "TECHNOLOGIES": "TECHNOLOGIES",
+    "software-defined manpack": "radio logicielle portable",
+    "manpack": "radio portable",
     "High Assurances architecture": "architecture à haute assurance",
     "High Assurances": "à haute assurance",
     "Multichannel Manpack Radio": "radio portable multicanal",
@@ -219,8 +222,21 @@ def required_names(source, terms=None):
     """Names present in the source, honoring explicit glossary overrides."""
     import re
     terms=terms or {}
-    return {name:terms.get(name,name) for name in PROTECTED_NAMES
-            if re.search(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source)}
+    names = {name:terms.get(name,name) for name in PROTECTED_NAMES
+             if re.search(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source)}
+    # Source-derived acronyms cover new documents (PLI, TRL, DSP, ...),
+    # without adding any names to inference prompts or assuming all capitals
+    # in a prose notice are identifiers.
+    prose_caps = source.isupper() and len(source.split()) >= 4
+    common = {'THE','AND','OR','FOR','WITH','ONLY','TO','OF','IN','ON','IS','ARE',
+              'NOT','THIS','THAT','ALL','FROM','BY','AS','AT','AN','IT','BE','CAN'}
+    localized = {word for key,value in {**DEFAULT_TERMS, **terms}.items() if key != value
+                 for word in re.findall(r'[A-Z]+', key.upper())}
+    if not prose_caps:
+        for name in re.findall(r'(?<!\w)[A-Z][A-Z0-9]{1,4}(?!\w)', source):
+            if name not in common and name not in localized:
+                names.setdefault(name,terms.get(name,name))
+    return names
 
 
 def missing_names(source,target,terms=None):
@@ -388,6 +404,9 @@ def structured_technical_text(text, terms=None):
     if battery:
         return (f'{battery[1]} : toutes les fonctions radio\n'
                 f'{battery[2]} et {battery[3]} également utilisables')
+    receive_only = re.fullmatch(r'([A-Z][A-Z0-9/-]*\s+)?RX only:\s*('+number+r'\s*[-–]\s*'+number+r'\s*(?:MHz|GHz|kHz|Hz))', text.strip())
+    if receive_only:
+        return (receive_only[1] or '') + terms.get('RX only', 'RX uniquement') + ' : ' + receive_only[2]
     security = re.fullmatch(r'([A-Za-z][A-Za-z0-9®™-]*)-based Type-1 Suite A and Suite B encryption \(selections vary by waveform\)', text.strip())
     if security:
         name=security[1]

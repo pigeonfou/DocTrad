@@ -10,6 +10,7 @@ from .quality import check
 from .terminology import terminology
 from .translation_audit import audit_translation
 from .diagnostics import record, InferenceError, safe_details
+from .document_context import translation_context
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ def _run_job(job_id):
                 if cached is not None and reusable_translation(text,cached,terms): translated = cached
                 else:
                     with httpx.Client(timeout=300, trust_env=False) as client:
-                        response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[text], "contextual":True, "glossary":terms})
+                        response = client.post(RUNTIME_URL + "/translate", headers={"X-Runtime-Secret":RUNTIME_SECRET}, json={"model_id":job.model_id, "revision":job.model_version, "texts":[text], "contextual":True, "glossary":terms, "contexts":[translation_context(items, i)]})
                         if response.status_code != 200:
                             diagnostic = {"code": "runtime_http_error", "http_status": response.status_code}
                             try:
