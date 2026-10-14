@@ -87,3 +87,9 @@ def test_web_interface_restoration_requires_unique_source_and_target_anchors():
         assert correct_network_terms(source, target) == target
     result = correct_network_terms('WebUI for management', 'Interface utilisateur web pour la gestion')
     assert not missing_names('WebUI for management', result)
+
+
+def test_user_interface_glossary_remains_authoritative():
+    with patch.object(RemoteEngine, '_translate_prose', return_value='Interface Web pour la gestion'):
+        result = RemoteEngine().translate_contextual('WebUI for management', {'WebUI': 'Interface Web'})
+    assert result == 'Interface Web pour la gestion'

@@ -94,14 +94,14 @@ class TransformersEngine(TranslationEngine):
             replacements = {term.casefold(): terms[term] for term in present}
             translated = pattern.sub(lambda match: replacements[match.group().casefold()], translated)
         from .terminology import correct_network_terms
-        translated = correct_network_terms(text, translated)
+        translated = correct_network_terms(text, translated, terms)
         # Keep full-sentence inference first. If it loses a protected name,
         # retry once with technical spans kept outside inference altogether.
         # Random placeholders are split by translate() and never sent upstream.
         from .terminology import required_names, missing_names
         if missing_names(text,translated,terms):
             from .quality import protect, restore
-            translated = correct_network_terms(text, self.recover_names(text, terms))
+            translated = correct_network_terms(text, self.recover_names(text, terms), terms)
         # Glossary headings at the start of a colon-separated paragraph keep
         # their preferred wording without fragmenting the model's source.
         source_heading, separator, _ = text.partition(':')
@@ -159,7 +159,7 @@ class RemoteEngine(TransformersEngine):
         from .terminology import missing_names
         from .diagnostics import InferenceError
         from .terminology import correct_network_terms
-        target = correct_network_terms(text, self._request_translation(text, retry=True))
+        target = correct_network_terms(text, self._request_translation(text, retry=True), terms)
         if missing_names(text, target, terms):
             # Recover independent clauses only after full-passage inference
             # failed twice. Never split at a name or arbitrary character limit.
@@ -171,7 +171,7 @@ class RemoteEngine(TransformersEngine):
                 recovered = []
                 for clause in clauses:
                     candidate = correct_network_terms(
-                        clause, self._request_translation(clause.strip(), retry=True))
+                        clause, self._request_translation(clause.strip(), retry=True), terms)
                     if missing_names(clause, candidate, terms):
                         break
                     recovered.append(candidate.strip())

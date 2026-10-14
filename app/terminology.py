@@ -246,7 +246,7 @@ def missing_names(source,target,terms=None):
             < len(re.findall(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source))]
 
 
-def correct_network_terms(source, target):
+def correct_network_terms(source, target, terms=None):
     """Correct observed ambiguous translations only in their source context."""
     import re
     # A model may translate a conventional interface acronym into its
@@ -255,7 +255,7 @@ def correct_network_terms(source, target):
     for name, phrase in {
         'WebUI': r'\binterface\s+(?:utilisateur\s+)?web\b',
     }.items():
-        if name in missing_names(source, target):
+        if name in missing_names(source, target, terms):
             anchors = list(re.finditer(phrase, target, re.I))
             if len(anchors) == 1 and len(re.findall(r'(?<!\w)' + re.escape(name) + r'(?!\w)', source)) == 1:
                 anchor = anchors[0]
