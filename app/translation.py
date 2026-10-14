@@ -183,10 +183,8 @@ class RemoteEngine(TransformersEngine):
                     "incomplete_response", "invalid_control_tokens", "empty_response", "foreign_script", "invented_identifier", "prompt_echo"):
                 raise
             # One recovery round only; no recursion or partial-answer export.
-            from .quality import segment
-            chunks = segment(text, max_chars=250)
             try:
-                return " ".join(self._request_translation(chunk, retry=True) for chunk in chunks)
+                return self._request_translation(text, retry=True)
             except InferenceError as last:
                 last.diagnostic["attempt"] = 2
                 raise
@@ -201,11 +199,11 @@ class RemoteEngine(TransformersEngine):
             def redirect_request(self, *args, **kwargs):
                 return None
         from .remote_ai import translation_payload
-        payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None), None if retry else getattr(self, "document_context", None))
+        payload = translation_payload(self.settings["model"], text, None if retry else getattr(self, "context_terms", None), None if retry else getattr(self, "document_context", None))
         if self.settings.get("auto_load"):
             payload["max_tokens"] = min(payload["max_tokens"], self.settings["context_length"] // 2)
         if retry and "translategemma" in self.settings["model"].lower():
-            payload["repetition_penalty"] = 1.1
+            payload["repetition_penalty"] = 1.0
             payload["max_tokens"] = 512
             payload["messages"][0]["content"] = (
                 "Translate the complete source faithfully; return only its translation.\n"

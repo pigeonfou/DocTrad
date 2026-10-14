@@ -12,7 +12,7 @@ DEFAULT_MODEL = "mradermacher/translategemma-12b-it-GGUF"
 
 def translation_payload(model, text, glossary=None, context=None):
     """Text chat format verified with the private Unsloth GGUF endpoint."""
-    payload = dict(model=model, temperature=0, max_tokens=1024, stream=False)
+    payload = dict(model=model, temperature=0, repetition_penalty=1.0, max_tokens=1024, stream=False)
     if "translategemma" in model.lower():
         # Stop before GGUF emits another conversation turn instead of
         # consuming the output budget on generated dialogue.

@@ -257,6 +257,7 @@ def test_recovery_payload_drops_context_but_retains_the_source(tmp_path):
     engine=RemoteEngine();engine.manifest={'id':'test','revision':'a'*40}
     engine.settings={'model':'translategemma','key_file':str(key),'base_url':'http://127.0.0.1/v1','auto_load':False}
     engine.document_context={'section':'UNRELATED_CONTEXT'}
+    engine.context_terms={'sentence':'TERMINOLOGY_HINT'}
     response=MagicMock();response.__enter__.return_value=response
     response.read.return_value=b'{"choices":[{"finish_reason":"stop","message":{"content":"Une phrase."}}]}'
     opener=MagicMock();opener.open.return_value=response
@@ -267,6 +268,8 @@ def test_recovery_payload_drops_context_but_retains_the_source(tmp_path):
         recovery=json.loads(opener.open.call_args.args[0].data)
     assert 'UNRELATED_CONTEXT' in initial['messages'][0]['content']
     assert 'UNRELATED_CONTEXT' not in recovery['messages'][0]['content']
+    assert 'TERMINOLOGY_HINT' not in recovery['messages'][0]['content']
+    assert recovery['repetition_penalty']==1.0
     assert recovery['messages'][0]['content'].endswith('A sentence.')
 
 
@@ -284,3 +287,13 @@ def test_model_is_prepared_on_engine_load_not_reloaded_per_passage(tmp_path):
         engine._request_translation('A sentence.')
         engine._request_translation('Another sentence.')
         prepare.assert_called_once_with(settings,unload_images=False)
+
+
+def test_drift_recovery_keeps_long_source_as_one_passage():
+    from app.diagnostics import InferenceError
+    text='A long technical sentence with its complete qualifications and terminology. '*8
+    engine=RemoteEngine()
+    with patch.object(engine,'_request_translation',side_effect=[InferenceError('foreign_script',{}),'Traduction intégrale']) as call:
+        assert engine._translate_prose(text)=='Traduction intégrale'
+        assert call.call_count==2
+        call.assert_called_with(text,retry=True)
