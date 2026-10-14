@@ -169,7 +169,8 @@ class RemoteEngine(TransformersEngine):
         try:
             return self._request_translation(text)
         except InferenceError as first:
-            if first.diagnostic.get("code") == "http_error" and first.diagnostic.get("http_status") in (500, 502, 503, 504):
+            if ((first.diagnostic.get("code") == "http_error" and first.diagnostic.get("http_status") in (500, 502, 503, 504))
+                    or (first.diagnostic.get("code") == "remote_error" and first.diagnostic.get("exception") in ("URLError", "ConnectionResetError"))):
                 # Translation is read-only: retry one transient server failure with
                 # the identical payload, never authentication or arbitrary failures.
                 import time

@@ -297,3 +297,15 @@ def test_drift_recovery_keeps_long_source_as_one_passage():
         assert engine._translate_prose(text)=='Traduction intégrale'
         assert call.call_count==2
         call.assert_called_with(text,retry=True)
+
+
+def test_interrupted_inference_connection_has_one_bounded_retry():
+    from app.diagnostics import InferenceError
+    engine=RemoteEngine()
+    with patch.object(engine,'_request_translation',side_effect=[InferenceError('remote_error',{'exception':'URLError'}),'Traduction complète']) as call,patch('time.sleep'):
+        assert engine._translate_prose('Source sentence')=='Traduction complète'
+        assert call.call_count==2
+    with patch.object(engine,'_request_translation',side_effect=InferenceError('remote_error',{'exception':'URLError'})) as call,patch('time.sleep'):
+        import pytest
+        with pytest.raises(InferenceError) as error:engine._translate_prose('Source sentence')
+        assert call.call_count==2 and error.value.diagnostic['attempt']==2
