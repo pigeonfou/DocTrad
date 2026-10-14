@@ -268,3 +268,19 @@ def test_recovery_payload_drops_context_but_retains_the_source(tmp_path):
     assert 'UNRELATED_CONTEXT' in initial['messages'][0]['content']
     assert 'UNRELATED_CONTEXT' not in recovery['messages'][0]['content']
     assert recovery['messages'][0]['content'].endswith('A sentence.')
+
+
+def test_model_is_prepared_on_engine_load_not_reloaded_per_passage(tmp_path):
+    from unittest.mock import MagicMock
+    key=tmp_path/'key';key.write_text('ephemeral-test-key')
+    configured={'id':'test','revision':'a'*40}
+    settings={'model':'translategemma','key_file':str(key),'base_url':'http://127.0.0.1/v1','auto_load':False}
+    engine=RemoteEngine()
+    response=MagicMock();response.__enter__.return_value=response
+    response.read.return_value=b'{"choices":[{"finish_reason":"stop","message":{"content":"Une phrase."}}]}'
+    opener=MagicMock();opener.open.return_value=response
+    with patch('app.remote_ai.settings',return_value=settings),patch('app.remote_ai.manifest',return_value=configured),patch('app.remote_ai.ensure_model') as prepare,patch('urllib.request.build_opener',return_value=opener):
+        engine.load(configured)
+        engine._request_translation('A sentence.')
+        engine._request_translation('Another sentence.')
+        prepare.assert_called_once_with(settings,unload_images=False)

@@ -145,6 +145,8 @@ class RemoteEngine(TransformersEngine):
         current = configured_manifest()
         if not current or current["revision"] != manifest["revision"]:
             raise ValueError("Configuration IA distante modifiée")
+        from .remote_ai import ensure_model
+        ensure_model(self.settings, unload_images=False)
         self.manifest = manifest
     def unload(self):
         self.manifest = None
@@ -198,8 +200,7 @@ class RemoteEngine(TransformersEngine):
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):
                 return None
-        from .remote_ai import translation_payload, ensure_model
-        ensure_model(self.settings, unload_images=False)
+        from .remote_ai import translation_payload
         payload = translation_payload(self.settings["model"], text, getattr(self, "context_terms", None), None if retry else getattr(self, "document_context", None))
         if self.settings.get("auto_load"):
             payload["max_tokens"] = min(payload["max_tokens"], self.settings["context_length"] // 2)

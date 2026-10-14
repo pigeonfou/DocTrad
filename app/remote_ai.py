@@ -19,7 +19,7 @@ def translation_payload(model, text, glossary=None, context=None):
         payload["stop"] = ["<|im_start|>", "<|im_end|>"]
         payload["messages"] = [{"role": "user", "content":
             "You are a professional English (en) to French (fr) translator. "
-            "Produce only the French translation, without explanations or commentary. Keep the source technical notation unchanged. "
+            "Produce only the French translation, without explanations or commentary. Keep source facts, qualifications and technical notation unchanged. "
             "Use concise technical phrasing. Do not expand acronyms into explanatory prose. "
             "Do not append a period to a short label when the source has none. "
             "Please translate the following English text into French:\n\n" + text}]

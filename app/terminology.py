@@ -4,6 +4,7 @@ Ne traduire ici que les termes non ambigus. Les noms commerciaux et
 identifiants restent inchangés. Le glossaire utilisateur a priorité.
 """
 DEFAULT_TERMS = {
+    "TECHNOLOGIES": "TECHNOLOGIES",
     "software-defined manpack": "radio logicielle portable",
     "manpack": "radio portable",
     "High Assurances architecture": "architecture à haute assurance",
@@ -221,8 +222,20 @@ def required_names(source, terms=None):
     """Names present in the source, honoring explicit glossary overrides."""
     import re
     terms=terms or {}
-    return {name:terms.get(name,name) for name in PROTECTED_NAMES
-            if re.search(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source)}
+    names = {name:terms.get(name,name) for name in PROTECTED_NAMES
+             if re.search(r'(?<!\w)'+re.escape(name)+r'(?!\w)',source)}
+    # Source-derived acronyms cover new documents (PLI, TRL, DSP, ...),
+    # without adding any names to inference prompts or assuming all capitals
+    # in a prose notice are identifiers.
+    prose_caps = source.isupper() and len(source.split()) >= 4
+    common = {'THE','AND','OR','FOR','WITH','ONLY','TO','OF','IN','ON','IS','ARE',
+              'NOT','THIS','THAT','ALL','FROM','BY','AS','AT','AN','IT','BE','CAN'}
+    localized = {key.upper() for key,value in terms.items() if key != value}
+    if not prose_caps:
+        for name in re.findall(r'(?<!\w)[A-Z][A-Z0-9]{1,4}(?!\w)', source):
+            if name not in common and name not in localized:
+                names.setdefault(name,terms.get(name,name))
+    return names
 
 
 def missing_names(source,target,terms=None):

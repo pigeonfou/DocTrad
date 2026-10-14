@@ -260,3 +260,11 @@ def test_receive_only_cell_keeps_acronyms_and_every_frequency():
     assert structured_technical_text('RX only: 100–200 MHz')=='RX uniquement : 100–200 MHz'
     assert structured_technical_text(source+' under specified conditions') is None
     assert 'réception seule (RX)' in structured_technical_text(source, {'RX only':'réception seule (RX)'})
+
+
+def test_acronym_checks_are_derived_from_source_for_unseen_documents():
+    from app.terminology import missing_names,required_names
+    assert set(missing_names('PLI, TRL and DSP improve performance.','Des informations de position et une maturité technologique élevée améliorent les performances.')) == {'PLI','TRL','DSP'}
+    assert not missing_names('PLI, TRL and DSP improve performance.','PLI, TRL et DSP améliorent les performances.')
+    assert required_names('THIS DOCUMENT IS FOR PUBLIC USE ONLY',{}) == {}
+    assert not missing_names('DSP processing','traitement numérique',{'DSP':'traitement numérique'})
